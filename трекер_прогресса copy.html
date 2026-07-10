@@ -1,0 +1,556 @@
+<div id="app">
+  <header class="hdr">
+    <div class="hdr-top">
+      <div class="title-wrap">
+        <span class="eyebrow">Дорожная карта</span>
+        <h1>Frontend → AI Engineer</h1>
+      </div>
+      <div class="actions">
+        <button id="exportBtn" class="btn ghost" title="Сохранить копию прогресса">Экспорт</button>
+        <button id="importBtn" class="btn ghost" title="Восстановить прогресс из копии">Импорт</button>
+        <button id="resetBtn" class="btn ghost danger" title="Сбросить весь прогресс">Сброс</button>
+      </div>
+    </div>
+
+    <div class="meters">
+      <div class="meter">
+        <div class="meter-head">
+          <span class="meter-label">Готовность к найму <span class="tag a">A</span></span>
+          <span class="meter-val" id="aPct">0%</span>
+        </div>
+        <div class="bar"><div class="fill a" id="aFill"></div></div>
+        <div class="meter-sub" id="aCount">0 / 0 пунктов критического пути</div>
+      </div>
+      <div class="meter">
+        <div class="meter-head">
+          <span class="meter-label">Вся программа <span class="tag b">A+B</span></span>
+          <span class="meter-val" id="allPct">0%</span>
+        </div>
+        <div class="bar"><div class="fill all" id="allFill"></div></div>
+        <div class="meter-sub" id="allCount">0 / 0 пунктов всего</div>
+      </div>
+    </div>
+
+    <div class="filters">
+      <span class="filters-label">Показать:</span>
+      <button class="chip active" data-filter="all">Всё</button>
+      <button class="chip" data-filter="a">Только критический путь [A]</button>
+      <button class="chip" data-filter="todo">Только невыполненное</button>
+      <span class="save-state" id="saveState"></span>
+    </div>
+  </header>
+
+  <main id="stages"></main>
+
+  <footer class="foot">
+    <p>Отмечай пункт, когда выполнил подтему <em>вместе</em> с её заданием «докажи себе». Контрольные (✓) и вехи (🏁) — отдельные пункты. Прогресс сохраняется автоматически.</p>
+  </footer>
+
+  <div id="modal" class="modal" hidden>
+    <div class="modal-box">
+      <div class="modal-head"><strong id="modalTitle">Экспорт прогресса</strong><button id="modalClose" class="btn ghost">Закрыть</button></div>
+      <p class="modal-hint" id="modalHint"></p>
+      <textarea id="modalText" spellcheck="false"></textarea>
+      <div class="modal-actions" id="modalActions"></div>
+    </div>
+  </div>
+</div>
+
+<style>
+  :root{
+    --ink:#161A21; --ink-soft:#5A6472; --paper:#F7F8FA; --surface:#FFFFFF;
+    --line:#E6E9EF; --line-soft:#EEF1F5;
+    --a:#2563EB; --a-soft:#E8F0FE; --b:#8B7BC7; --b-soft:#F1EDFA;
+    --done:#15A05A; --danger:#C4453B;
+    --radius:14px; --mono:ui-monospace,"SF Mono",Menlo,Consolas,monospace;
+    --sans:system-ui,-apple-system,"Segoe UI",Roboto,sans-serif;
+  }
+  *{box-sizing:border-box}
+  #app{font-family:var(--sans);color:var(--ink);max-width:860px;margin:0 auto;padding:8px 18px 60px;line-height:1.5}
+  .hdr{position:sticky;top:0;z-index:5;background:var(--paper);padding:18px 0 14px;margin-bottom:8px;border-bottom:1px solid var(--line)}
+  .hdr-top{display:flex;justify-content:space-between;align-items:flex-start;gap:12px;flex-wrap:wrap}
+  .eyebrow{font-family:var(--mono);font-size:11px;letter-spacing:.14em;text-transform:uppercase;color:var(--ink-soft)}
+  h1{font-size:23px;font-weight:680;margin:2px 0 0;letter-spacing:-.01em}
+  .actions{display:flex;gap:6px;flex-wrap:wrap}
+  .btn{font-family:var(--sans);font-size:12.5px;border:1px solid var(--line);background:var(--surface);color:var(--ink);padding:6px 11px;border-radius:9px;cursor:pointer;transition:background .15s,border-color .15s}
+  .btn:hover{background:var(--line-soft)}
+  .btn.danger{color:var(--danger)}
+  .btn.danger:hover{background:#FBEAE9;border-color:#F0C8C4}
+  .btn:focus-visible{outline:2px solid var(--a);outline-offset:2px}
+
+  .meters{display:grid;grid-template-columns:1fr 1fr;gap:14px;margin-top:16px}
+  .meter-head{display:flex;justify-content:space-between;align-items:baseline;margin-bottom:6px}
+  .meter-label{font-size:13px;font-weight:560;display:flex;align-items:center;gap:7px}
+  .meter-val{font-family:var(--mono);font-size:17px;font-weight:600;font-variant-numeric:tabular-nums}
+  .bar{height:9px;background:var(--line);border-radius:99px;overflow:hidden}
+  .fill{height:100%;width:0;border-radius:99px;transition:width .5s cubic-bezier(.2,.8,.2,1)}
+  .fill.a{background:linear-gradient(90deg,#2563EB,#5B8DEF)}
+  .fill.all{background:linear-gradient(90deg,#8B7BC7,#B6A6E6)}
+  .meter-sub{font-family:var(--mono);font-size:11px;color:var(--ink-soft);margin-top:5px;font-variant-numeric:tabular-nums}
+
+  .filters{display:flex;align-items:center;gap:7px;margin-top:16px;flex-wrap:wrap}
+  .filters-label{font-size:12px;color:var(--ink-soft)}
+  .chip{font-family:var(--sans);font-size:12.5px;border:1px solid var(--line);background:var(--surface);color:var(--ink-soft);padding:5px 11px;border-radius:99px;cursor:pointer;transition:.15s}
+  .chip:hover{border-color:var(--a)}
+  .chip.active{background:var(--ink);color:#fff;border-color:var(--ink)}
+  .chip:focus-visible{outline:2px solid var(--a);outline-offset:2px}
+  .save-state{font-family:var(--mono);font-size:11px;color:var(--done);margin-left:auto;opacity:0;transition:opacity .3s}
+  .save-state.show{opacity:1}
+
+  .stage{background:var(--surface);border:1px solid var(--line);border-radius:var(--radius);margin:14px 0;overflow:hidden}
+  .stage-head{display:flex;align-items:center;gap:14px;padding:15px 17px;cursor:pointer;user-select:none}
+  .stage-head:focus-visible{outline:2px solid var(--a);outline-offset:-2px}
+  .stage-num{font-family:var(--mono);font-size:12px;font-weight:600;color:var(--ink-soft);min-width:18px}
+  .stage-title{font-size:15.5px;font-weight:600;flex:1;letter-spacing:-.005em}
+  .stage-weeks{font-family:var(--mono);font-size:11px;color:var(--ink-soft);white-space:nowrap}
+  .stage-prog{font-family:var(--mono);font-size:12px;color:var(--ink-soft);font-variant-numeric:tabular-nums;white-space:nowrap}
+  .stage-minibar{width:54px;height:6px;background:var(--line);border-radius:99px;overflow:hidden;flex-shrink:0}
+  .stage-minibar .mf{height:100%;width:0;background:var(--done);transition:width .4s}
+  .chev{transition:transform .2s;color:var(--ink-soft);flex-shrink:0}
+  .stage.collapsed .chev{transform:rotate(-90deg)}
+  .stage-body{border-top:1px solid var(--line-soft)}
+  .stage.collapsed .stage-body{display:none}
+
+  .block-name{font-family:var(--mono);font-size:11.5px;font-weight:600;letter-spacing:.02em;color:var(--ink-soft);padding:13px 17px 6px;text-transform:uppercase}
+  .row{display:flex;align-items:flex-start;gap:11px;padding:7px 17px;border-top:1px solid var(--line-soft);cursor:pointer;transition:background .12s}
+  .row:hover{background:var(--paper)}
+  .row .cb{appearance:none;-webkit-appearance:none;width:18px;height:18px;border:1.6px solid var(--line);border-radius:5px;margin-top:1px;cursor:pointer;flex-shrink:0;display:grid;place-content:center;transition:.15s;background:#fff}
+  .row .cb:checked{background:var(--done);border-color:var(--done)}
+  .row .cb:checked::after{content:"";width:5px;height:9px;border:solid #fff;border-width:0 2px 2px 0;transform:rotate(45deg) translateY(-1px)}
+  .row .cb:focus-visible{outline:2px solid var(--a);outline-offset:2px}
+  .code{font-family:var(--mono);font-size:11.5px;color:var(--ink-soft);min-width:46px;padding-top:1px;font-variant-numeric:tabular-nums}
+  .label{flex:1;font-size:14px;padding-top:.5px}
+  .row.done .label{color:var(--ink-soft);text-decoration:line-through;text-decoration-color:var(--line)}
+  .tag{font-family:var(--mono);font-size:9.5px;font-weight:700;letter-spacing:.04em;padding:2px 6px;border-radius:5px;flex-shrink:0;margin-top:1px}
+  .tag.a{background:var(--a-soft);color:var(--a)}
+  .tag.b{background:var(--b-soft);color:var(--b)}
+  .tag.ab{background:linear-gradient(90deg,var(--a-soft),var(--b-soft));color:var(--a)}
+  .star{color:#E0A82E;font-size:12px;margin-top:2px}
+  .row.special .label{font-weight:560}
+  .row.ctrl .code,.row.milestone .code{font-size:13px}
+
+  .foot{margin-top:24px;color:var(--ink-soft);font-size:12.5px}
+  .foot em{font-style:normal;font-weight:600;color:var(--ink)}
+
+  .modal{position:fixed;inset:0;background:rgba(20,24,31,.45);display:grid;place-items:center;z-index:20;padding:18px}
+  .modal[hidden]{display:none}
+  .modal-box{background:var(--surface);border-radius:var(--radius);max-width:560px;width:100%;padding:18px;border:1px solid var(--line)}
+  .modal-head{display:flex;justify-content:space-between;align-items:center;margin-bottom:8px}
+  .modal-hint{font-size:12.5px;color:var(--ink-soft);margin:0 0 10px}
+  #modalText{width:100%;height:160px;font-family:var(--mono);font-size:11.5px;border:1px solid var(--line);border-radius:9px;padding:10px;resize:vertical}
+  .modal-actions{display:flex;justify-content:flex-end;gap:8px;margin-top:12px}
+  .btn.primary{background:var(--a);color:#fff;border-color:var(--a)}
+  .btn.primary:hover{background:#1D55D0}
+
+  @media(max-width:560px){
+    .meters{grid-template-columns:1fr}
+    h1{font-size:20px}
+    .stage-weeks{display:none}
+  }
+  @media(prefers-reduced-motion:reduce){*{transition:none!important}}
+</style>
+
+<script>
+(function(){
+  // tag: "A" | "B" | "AB"; 4th el "*" marks key item; code "✓"/"🏁" for control/milestone
+  const DATA = [
+    {n:"SQL",t:"SQL для AI Engineer · старт (с Практикумом)",w:"~месяц",blocks:[
+      {name:"S · Рабочий SQL для LLM-приложений",items:[
+        ["S.1","Выборка: SELECT/WHERE/ORDER BY/LIMIT/DISTINCT","A"],
+        ["S.2","Фильтрация: IN, BETWEEN, LIKE, IS NULL","A"],
+        ["S.3","Агрегация: GROUP BY + COUNT/SUM/AVG, HAVING","A"],
+        ["S.4","Соединения: INNER / LEFT JOIN","A"],
+        ["S.5","Подзапросы и CTE (WITH)","A"],
+        ["S.6","INSERT/UPDATE/DELETE, CREATE TABLE, индексы","A"],
+        ["S.7","pgvector: тип vector, <=>/<->, HNSW, гибрид с WHERE","A","*"],
+        ["S.8","Text-to-SQL как агентный паттерн","A"],
+        ["✓","Контрольное: гибридный векторный поиск на pgvector","A","*"]]},
+      {name:"A · Аналитический SQL (закрепление спринтов Практикума)",items:[
+        ["A.1","Множества (UNION/INTERSECT/EXCEPT), подзапросы, CTE","A"],
+        ["A.2","Категоризация: CASE, вычисляемые столбцы","A"],
+        ["A.3","Дата и время: интервалы, группировка по периодам","A"],
+        ["A.4","Оконные функции: OVER, PARTITION BY, ORDER BY","B"],
+        ["A.5","Ранжирование: ROW_NUMBER/RANK/DENSE_RANK/NTILE","B"],
+        ["A.6","Смещение: LEAD/LAG, FIRST_VALUE/LAST_VALUE","B"],
+        ["A.7","Описательная статистика в SQL (перцентили)","A","*"],
+        ["A.8","Ad-hoc методология: декомпозиция через CTE","A","*"]]}
+    ]},
+    {n:0,t:"Python и инструментарий ML",w:"2–3 нед",blocks:[
+      {name:"0.1 От JS/TS к Python",items:[
+        ["0.1.1","Синтаксис и базовые типы","A"],["0.1.2","Структуры данных","A"],
+        ["0.1.3","Функции","A"],["0.1.4","ООП: dataclass, dunder","A"],
+        ["0.1.5","Генераторы, декораторы, контекст-менеджеры","A"],
+        ["0.1.6","Типизация и async","A"],["0.1.7","Модули, окружения, pip","A"],
+        ["✓","Контрольное: модуль с dataclass + генератор + mypy","A"]]},
+      {name:"0.2 Научный стек",items:[
+        ["0.2.1","NumPy: ndarray, broadcasting, векторизация","A"],
+        ["0.2.2","Pandas: DataFrame, groupby, merge","A"],
+        ["0.2.3","Визуализация: matplotlib/seaborn","A"],
+        ["✓","Контрольное: чистка + агрегации + 2 графика","A"]]},
+      {name:"0.3 Среда",items:[
+        ["0.3.1","Ноутбуки: Jupyter/Colab/Kaggle","A"],["0.3.2","venv/conda/uv","A"],
+        ["0.3.3","Git под ML (.gitignore)","A"],["0.3.4","CLI","A"]]},
+      {name:"0.4 Железо",items:[
+        ["0.4","Mac (MPS) vs облако vs платная GPU","A"],
+        ["🏁","Веха: мини-EDA, публикация на Kaggle","A","*"]]}
+    ]},
+    {n:1,t:"Математический фундамент с нуля",w:"5–16 нед",blocks:[
+      {name:"1.0 Предполёт",items:[
+        ["1.0.1","Нотация и обозначения","A"],["1.0.2","Функции и графики","A"],
+        ["1.0.3","Степени, корни, логарифмы","A"],["1.0.4","Суммы Σ и произведения ∏","A"],
+        ["1.0.5","Чтение графиков, наклон","A"],["✓","Контрольное 1.0","A"]]},
+      {name:"1.1 Линейная алгебра",items:[
+        ["1.1.1","Векторы","A"],["1.1.2","Скалярное произведение, норма","A"],
+        ["1.1.3","Косинусная близость","A","*"],["1.1.4","Матрицы и операции","A"],
+        ["1.1.5","Умножение матриц","A"],["1.1.6","Матрица как преобразование","A"],
+        ["1.1.7","Независимость, базис, ранг","B"],["1.1.8","Определитель, обратная","B"],
+        ["1.1.9","Собственные значения и векторы","B"],["1.1.10","SVD, проекции","B"],
+        ["✓","Контрольное: косинус-поиск на NumPy","A"]]},
+      {name:"1.2 Математический анализ",items:[
+        ["1.2.1","Предел, непрерывность","B"],["1.2.2","Производная","A"],
+        ["1.2.3","Правила, цепное правило","A"],["1.2.4","Частные производные, градиент","A","*"],
+        ["1.2.5","Градиентный спуск (интуиция)","A"],["1.2.6","Якобиан, гессиан","B"],
+        ["1.2.7","Ряд Тейлора, интегралы","B"],["✓","Контрольное: градиентный спуск","A"]]},
+      {name:"1.3 Теория вероятностей",items:[
+        ["1.3.1","Вероятность, события","A"],["1.3.2","Условная вероятность","A"],
+        ["1.3.3","Теорема Байеса","AB"],["1.3.4","Случайные величины","A"],
+        ["1.3.5","Матожидание, дисперсия","A"],["1.3.6","Ключевые распределения","AB"],
+        ["1.3.7","Softmax","A","*"],["1.3.8","ЗБЧ и ЦПТ","B"],
+        ["✓","Контрольное: Монте-Карло Байес","A"]]},
+      {name:"1.4 Статистика",items:[
+        ["1.4.1","Описательная статистика","A"],["1.4.2","Выборка, смещение","A"],
+        ["1.4.3","Корреляция","A"],["1.4.4","Доверительные интервалы","B"],
+        ["1.4.5","Гипотезы, p-value","AB"],["1.4.6","A/B-тестирование","A"],
+        ["1.4.7","Bootstrap","B"],["✓","Контрольное: t-тест + вывод","A"],
+        ["🏁","Веха: ЛА и оптимизация руками (NumPy)","A","*"]]}
+    ]},
+    {n:2,t:"Классический ML",w:"3–8 нед",blocks:[
+      {name:"2.1 Рабочий процесс",items:[
+        ["2.1.1","Типы задач","A"],["2.1.2","Train/val/test","A"],
+        ["2.1.3","Кросс-валидация","A"],["2.1.4","Переобучение/недообучение","A"],
+        ["2.1.5","Утечки данных","A","*"],["2.1.6","sklearn API, Pipeline","A"],
+        ["✓","Контрольное 2.1","A"]]},
+      {name:"2.2 Метрики",items:[
+        ["2.2.1","Матрица ошибок, базовые метрики","A"],["2.2.2","ROC-AUC, PR-кривая","A"],
+        ["2.2.3","Порог классификации","A"],["2.2.4","Метрики регрессии","A"],
+        ["2.2.5","Метрики ранжирования","A","*"],["✓","Контрольное 2.2","A"]]},
+      {name:"2.3 Линейные модели",items:[
+        ["2.3.1","Линейная регрессия","A"],["2.3.2","Логистическая регрессия","A","*"],
+        ["2.3.3","Регуляризация L1/L2","A"],["2.3.4","Масштабирование","A"],
+        ["2.3.5","Мультиклассовость","B"],["2.3.6","Вывод, связь с MLE","B"],
+        ["✓","Контрольное 2.3","A"]]},
+      {name:"2.4 Деревья и признаки",items:[
+        ["2.4.1","Дерево решений","A"],["2.4.2","Переобучение деревьев","A"],
+        ["2.4.3","Кодирование категорий","A"],["2.4.4","Масштабирование, пропуски","A"],
+        ["2.4.5","Признаки из дат/текста","A"],["✓","Контрольное 2.4","A"]]},
+      {name:"2.5 Ансамбли и бустинг",items:[
+        ["2.5.1","Идея ансамблей","B"],["2.5.2","Random Forest","B"],
+        ["2.5.3","Градиентный бустинг","B"],["2.5.4","XGBoost/LightGBM/CatBoost","B"],
+        ["2.5.5","Тюнинг гиперпараметров","B"],["✓","Контрольное 2.5","B"]]},
+      {name:"2.6 Отбор и инженерия признаков",items:[
+        ["2.6.1","Важность признаков","B"],["2.6.2","Методы отбора","B"],
+        ["2.6.3","Инженерия признаков","B"],["2.6.4","Мультиколлинеарность","B"],
+        ["✓","Контрольное 2.6","B"]]},
+      {name:"2.7 Интерпретация",items:[
+        ["2.7.1","Глобальная важность","B"],["2.7.2","SHAP","B","*"],
+        ["2.7.3","Partial dependence","B"],["✓","Контрольное 2.7","B"]]},
+      {name:"2.8 Обучение без учителя",items:[
+        ["2.8.1","K-means","B"],["2.8.2","Иерархическая, DBSCAN","B"],
+        ["2.8.3","PCA","B","*"],["2.8.4","t-SNE / UMAP","B"],
+        ["✓","Контрольное 2.8","B"],
+        ["🏁","Веха: табличный проект + сабмит на Kaggle","A","*"]]}
+    ]},
+    {n:3,t:"Глубокое обучение изнутри",w:"3–10 нед",blocks:[
+      {name:"3.1 Нейросети с нуля",items:[
+        ["3.1.1","Перцептрон, нейрон","B"],["3.1.2","MLP, прямой проход","B"],
+        ["3.1.3","Функции активации","B"],["3.1.4","Функции потерь","B"],
+        ["3.1.5","Инициализация весов","B"],["✓","Контрольное 3.1","B"]]},
+      {name:"3.2 Обратное распространение",items:[
+        ["3.2.1","Граф вычислений","B"],["3.2.2","Backprop руками","B","*"],
+        ["3.2.3","Autograd, micrograd","B"],["3.2.4","Оптимизаторы (SGD, Adam)","B"],
+        ["3.2.5","Регуляризация в DL","B"],["✓","Контрольное: backprop без autograd","B"]]},
+      {name:"3.3 PyTorch",items:[
+        ["3.3.1","Тензоры (cpu/mps)","A"],["3.3.2","Autograd","A"],
+        ["3.3.3","nn.Module, слои","A"],["3.3.4","Обучающий цикл","A"],
+        ["3.3.5","Сохранение, инференс","A"],["3.3.6","Отладка, типичные ошибки","A"],
+        ["✓","Контрольное: MNIST на Mac MPS","A"]]},
+      {name:"3.4 Свёрточные сети (обзорно)",items:[
+        ["3.4.1","Свёртка, ядра","B"],["3.4.2","Пулинг, архитектура","B"],
+        ["3.4.3","ResNet, residual","B"],["3.4.4","Transfer learning","B"],
+        ["✓","Контрольное: CNN на CIFAR (Colab)","B"]]},
+      {name:"3.5 Рекуррентные сети",items:[
+        ["3.5.1","RNN","B"],["3.5.2","Долгие зависимости","B"],
+        ["3.5.3","LSTM, GRU","B"],["3.5.4","Seq2seq, узкое место","B"],
+        ["✓","Контрольное 3.5","B"]]},
+      {name:"3.6 Attention и трансформеры",items:[
+        ["3.6.1","Механизм внимания","A","*"],["3.6.2","Self-attention","A"],
+        ["3.6.3","Multi-head attention","A"],["3.6.4","Позиционное кодирование","A"],
+        ["3.6.5","Архитектура трансформера","A"],["3.6.6","Построение GPT руками","B","*"],
+        ["3.6.7","Масштабирование, контекст","A"],["✓","Контрольное: self-attention с нуля","A"]]},
+      {name:"3.7 Токены, эмбеддинги, LM",items:[
+        ["3.7.1","Токенизация, BPE","A","*"],["3.7.2","Эмбеддинги","A"],
+        ["3.7.3","Языковое моделирование","A"],["3.7.4","Сэмплирование (temp, top-p)","A","*"],
+        ["3.7.5","Предобучение, дообучение","A"],["✓","Контрольное: эмбеддинг-поиск + UMAP","A"],
+        ["🏁","Веха: свой mini-GPT","B","*"]]}
+    ]},
+    {n:4,t:"AI-инженерия: LLM-приложения",w:"8–10 нед",blocks:[
+      {name:"4.1 LLM API",items:[
+        ["4.1.1","Модели и провайдеры","A"],["4.1.2","Chat/Messages API","A"],
+        ["4.1.3","Токены и стоимость","A","*"],["4.1.4","Параметры генерации","A"],
+        ["4.1.5","Стриминг","A"],["4.1.6","Структурированный вывод","A","*"],
+        ["4.1.7","Мультимодальность","A"],["✓","Контрольное: клиент-обёртка","A"]]},
+      {name:"4.2 Промт-инжиниринг",items:[
+        ["4.2.1","Системные промпты, роль","A"],["4.2.2","Zero/few-shot","A"],
+        ["4.2.3","Chain-of-thought, reasoning","A"],["4.2.4","Структурирование (XML/JSON)","A"],
+        ["4.2.5","Prompt chaining","A"],["4.2.6","Context engineering","A","*"],
+        ["4.2.7","Итеративная отладка","A"],["✓","Контрольное: стабильный экстрактор","A"]]},
+      {name:"4.3 Эмбеддинги и поиск",items:[
+        ["4.3.1","Эмбеддинг-модели","A"],["4.3.2","Семантическая близость","A","*"],
+        ["4.3.3","Чанкинг","A"],["4.3.4","Виды поиска (BM25/гибрид)","A"],
+        ["4.3.5","Re-ranking","A"],["✓","Контрольное: семантический поиск","A"]]},
+      {name:"4.4 Векторные БД",items:[
+        ["4.4.1","ANN-поиск","A"],["4.4.2","Обзор: pgvector, Qdrant…","A"],
+        ["4.4.3","Индексы (HNSW), метрики","A"],["4.4.4","Метаданные, фильтрация","A"],
+        ["4.4.5","Выбор БД","A"],["✓","Контрольное: поиск на pgvector/Qdrant","A"]]},
+      {name:"4.5 RAG",items:[
+        ["4.5.1","Архитектура RAG","A"],["4.5.2","Naive RAG, проблемы","A"],
+        ["4.5.3","Продвинутые техники","A"],["4.5.4","Цитирование, галлюцинации","A"],
+        ["4.5.5","Границы RAG","A"],["✓","Контрольное: RAG с цитатами","A","*"]]},
+      {name:"4.6 Агенты и tool use",items:[
+        ["4.6.1","Function calling / tool use","A","*"],["4.6.2","ReAct-паттерн","A"],
+        ["4.6.3","Циклы, планирование, память","A"],["4.6.4","Мульти-агентные системы","A"],
+        ["4.6.5","Надёжность","A"],["4.6.6","Безопасность инструментов","A","*"],
+        ["✓","Контрольное: агент с 2–3 инструментами","A"]]},
+      {name:"4.7 MCP",items:[
+        ["4.7.1","Проблема N×M, идея","A"],["4.7.2","Архитектура host/client/server","A"],
+        ["4.7.3","Примитивы: tools/resources/prompts","A"],["4.7.4","Готовые серверы","A"],
+        ["4.7.5","Свой MCP-сервер","A","*"],["✓","Контрольное: MCP-сервер","A"]]},
+      {name:"4.8 Eval",items:[
+        ["4.8.1","Зачем eval","A"],["4.8.2","Offline eval, золотой набор","A"],
+        ["4.8.3","Метрики RAG (faithfulness…)","A"],["4.8.4","LLM-as-a-judge","A","*"],
+        ["4.8.5","Инструменты (RAGAS…)","A"],["4.8.6","Онлайн-метрики, A/B","A"],
+        ["✓","Контрольное: eval-харнесс для RAG","A","*"]]},
+      {name:"4.9 Фреймворки и оркестрация",items:[
+        ["4.9.1","LangChain / LangGraph","A"],["4.9.2","LlamaIndex","A"],
+        ["4.9.3","Vercel AI SDK","A","*"],["4.9.4","Альтернативы","A"],
+        ["4.9.5","Актуальность","A"],["✓","Контрольное: фреймворк vs SDK","A"]]},
+      {name:"4.10 Дообучение (опц.)",items:[
+        ["4.10.1","Когда fine-tuning","B"],["4.10.2","LoRA / QLoRA / PEFT","B"],
+        ["4.10.3","Instruction tuning","B"],["4.10.4","Где обучать (GPU)","B"],
+        ["✓","Контрольное: LoRA в Colab","B"],
+        ["🏁","Веха: full-stack AI-приложение","A","*"]]}
+    ]},
+    {n:5,t:"Инференс, деплой и выход на роль",w:"6–8 нед",blocks:[
+      {name:"5.1 Инференс и оптимизация",items:[
+        ["5.1.1","Как считается инференс","A"],["5.1.2","Квантизация (GGUF/AWQ)","A"],
+        ["5.1.3","Локальный инференс (Ollama)","A"],["5.1.4","Hosted / vLLM","A"],
+        ["5.1.5","Cost-оптимизация, роутер моделей","A","*"],["✓","Контрольное: снизить стоимость RAG","A"]]},
+      {name:"5.2 Деплой full-stack",items:[
+        ["5.2.1","Бэкенд (FastAPI, стриминг)","A"],["5.2.2","Фронтенд (React, generative UI)","A","*"],
+        ["5.2.3","Развёртывание (Vercel/Modal…)","A"],["5.2.4","Ключи, лимиты, секреты","A"],
+        ["5.2.5","Демо (HF Spaces)","A"],["5.2.6","Контейнеризация (Docker)","A"],["✓","Контрольное: задеплоить флагман","A"]]},
+      {name:"5.3 Наблюдаемость и безопасность",items:[
+        ["5.3.1","Трейсинг (Langfuse/LangSmith)","A","*"],["5.3.2","Мониторинг качества в проде","A"],
+        ["5.3.3","Безопасность, prompt injection","A","*"],["5.3.4","Guardrails","A"],
+        ["5.3.5","Excessive Agency (LLM06)","A","*"],["✓","Контрольное: трейсинг + guardrail + red-team","A"]]},
+      {name:"5.4 MLOps по необходимости",items:[
+        ["5.4.1","Версионирование промптов","A","*"],["5.4.2","Эксперименты (W&B)","A"],
+        ["5.4.3","CI/CD с eval-гейтом","A"],["5.4.4","Данные и приватность","A"],
+        ["✓","Контрольное: eval-гейт в CI","A"]]},
+      {name:"5.5 Портфолио",items:[
+        ["5.5.1","Проект 1: chat-with-docs (флагман)","A","*"],
+        ["5.5.2","Проект 2: агент + generative UI","A"],
+        ["5.5.3","Проект 3: prompt/eval-студия","A"],
+        ["5.5.4","Проект 4: MCP-интеграция","A"]]},
+      {name:"5.6 Чек-лист и интервью",items:[
+        ["5.6.1","Чек-лист компетенций заполнен","A","*"],["5.6.2","Интервью: eval-история","A"],
+        ["5.6.3","Интервью: cost-моделирование","A"],["5.6.4","Интервью: безопасность/OWASP","A"],
+        ["5.6.5","Интервью: RAG-архитектура","A"],["5.6.6","Интервью: fine-tune vs RAG vs prompt","A"],
+        ["5.6.7","Интервью: red-team за 15 мин","A"]]},
+      {name:"5.7 Поиск работы",items:[
+        ["5.7.1","Позиционирование","A"],["5.7.2","Резюме под ATS","A"],
+        ["5.7.3","Список 10 вакансий","A"],["5.7.4","Сертификаты (решить)","A"],
+        ["5.7.5","GitHub-присутствие","A"],
+        ["🏁","Веха: задеплоенное портфолио + готовность к интервью","A","*"]]}
+    ]}
+  ];
+
+  const KEY="roadmap_tracker_v1";
+  let checked=new Set();
+  const stagesEl=document.getElementById("stages");
+
+  // build stable ids
+  DATA.forEach((s,si)=>s.blocks.forEach((b,bi)=>b.items.forEach((it,ii)=>{it._id=si+"-"+bi+"-"+ii;})));
+
+  function isA(tag){return tag==="A"||tag==="AB";}
+  const totalAll=DATA.reduce((a,s)=>a+s.blocks.reduce((x,b)=>x+b.items.length,0),0);
+  const totalA=DATA.reduce((a,s)=>a+s.blocks.reduce((x,b)=>x+b.items.filter(i=>isA(i[2])).length,0),0);
+
+  let saveTimer=null;
+  async function save(){
+    const json=JSON.stringify([...checked]);
+    // 1) localStorage — работает на обычной странице (GitHub Pages) и хранит между сессиями
+    try{ if(window.localStorage){ localStorage.setItem(KEY,json); } }catch(e){}
+    // 2) артефактное хранилище Claude — фолбэк для предпросмотра внутри приложения
+    try{ if(window.storage&&window.storage.set){ await window.storage.set(KEY,json,false); } }catch(e){}
+    const ss=document.getElementById("saveState");
+    ss.textContent="сохранено";ss.classList.add("show");
+    clearTimeout(saveTimer);saveTimer=setTimeout(()=>ss.classList.remove("show"),1200);
+  }
+  async function load(){
+    // сначала localStorage (GitHub Pages / обычный браузер)
+    try{
+      if(window.localStorage){
+        const v=localStorage.getItem(KEY);
+        if(v){ checked=new Set(JSON.parse(v)); return; }
+      }
+    }catch(e){}
+    // затем артефактное хранилище Claude
+    try{
+      if(window.storage&&window.storage.get){
+        const r=await window.storage.get(KEY);
+        if(r&&r.value){ checked=new Set(JSON.parse(r.value)); }
+      }
+    }catch(e){ checked=new Set(); }
+  }
+
+  function tagHTML(tag){
+    const cls=tag==="A"?"a":tag==="B"?"b":"ab";
+    const txt=tag==="AB"?"A+B":tag;
+    return '<span class="tag '+cls+'">'+txt+'</span>';
+  }
+
+  function render(){
+    stagesEl.innerHTML="";
+    DATA.forEach((s,si)=>{
+      const items=s.blocks.flatMap(b=>b.items);
+      const done=items.filter(i=>checked.has(i._id)).length;
+      const stage=document.createElement("section");
+      stage.className="stage"+(done===items.length&&done>0?"":"");
+      stage.innerHTML=
+        '<div class="stage-head" tabindex="0" role="button" aria-expanded="true">'+
+          '<span class="stage-num">'+s.n+'</span>'+
+          '<span class="stage-title">'+s.t+'</span>'+
+          '<span class="stage-weeks">'+s.w+'</span>'+
+          '<span class="stage-minibar"><span class="mf"></span></span>'+
+          '<span class="stage-prog">'+done+'/'+items.length+'</span>'+
+          '<svg class="chev" width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.5"><path d="M6 9l6 6 6-6"/></svg>'+
+        '</div>'+
+        '<div class="stage-body"></div>';
+      const body=stage.querySelector(".stage-body");
+      s.blocks.forEach(b=>{
+        const bn=document.createElement("div");bn.className="block-name";bn.textContent=b.name;body.appendChild(bn);
+        b.items.forEach(it=>{
+          const id=it._id,isDone=checked.has(id);
+          const special=it[0]==="✓"||it[0]==="🏁";
+          const row=document.createElement("label");
+          row.className="row"+(isDone?" done":"")+(special?" special":"")+(it[0]==="✓"?" ctrl":"")+(it[0]==="🏁"?" milestone":"");
+          row.dataset.id=id;row.dataset.tag=it[2];
+          row.innerHTML=
+            '<input type="checkbox" class="cb" '+(isDone?"checked":"")+'>'+
+            '<span class="code">'+it[0]+'</span>'+
+            '<span class="label">'+it[1]+'</span>'+
+            (it[3]==="*"?'<span class="star" title="ключевая тема">★</span>':'')+
+            tagHTML(it[2]);
+          const cb=row.querySelector(".cb");
+          cb.addEventListener("change",()=>{
+            if(cb.checked)checked.add(id);else checked.delete(id);
+            row.classList.toggle("done",cb.checked);
+            update();save();
+          });
+          body.appendChild(row);
+        });
+      });
+      const head=stage.querySelector(".stage-head");
+      const toggle=()=>{const c=stage.classList.toggle("collapsed");head.setAttribute("aria-expanded",String(!c));};
+      head.addEventListener("click",toggle);
+      head.addEventListener("keydown",e=>{if(e.key==="Enter"||e.key===" "){e.preventDefault();toggle();}});
+      stagesEl.appendChild(stage);
+    });
+    update();
+    applyFilter(currentFilter);
+  }
+
+  function update(){
+    const doneAll=[...checked].length;
+    let doneA=0;DATA.forEach(s=>s.blocks.forEach(b=>b.items.forEach(i=>{if(isA(i[2])&&checked.has(i._id))doneA++;})));
+    const pa=totalA?Math.round(doneA/totalA*100):0, pall=totalAll?Math.round(doneAll/totalAll*100):0;
+    document.getElementById("aFill").style.width=pa+"%";
+    document.getElementById("allFill").style.width=pall+"%";
+    document.getElementById("aPct").textContent=pa+"%";
+    document.getElementById("allPct").textContent=pall+"%";
+    document.getElementById("aCount").textContent=doneA+" / "+totalA+" пунктов критического пути";
+    document.getElementById("allCount").textContent=doneAll+" / "+totalAll+" пунктов всего";
+    document.querySelectorAll(".stage").forEach((st,si)=>{
+      const items=DATA[si].blocks.flatMap(b=>b.items);
+      const d=items.filter(i=>checked.has(i._id)).length;
+      st.querySelector(".stage-prog").textContent=d+"/"+items.length;
+      st.querySelector(".mf").style.width=(items.length?d/items.length*100:0)+"%";
+    });
+  }
+
+  let currentFilter="all";
+  function applyFilter(f){
+    currentFilter=f;
+    document.querySelectorAll(".row").forEach(r=>{
+      const tag=r.dataset.tag, done=checked.has(r.dataset.id);
+      let show=true;
+      if(f==="a")show=isA(tag);
+      else if(f==="todo")show=!done;
+      r.style.display=show?"":"none";
+    });
+    document.querySelectorAll(".block-name").forEach(bn=>{
+      let n=bn.nextElementSibling, any=false;
+      while(n&&n.classList.contains("row")){if(n.style.display!=="none")any=true;n=n.nextElementSibling;}
+      bn.style.display=any?"":"none";
+    });
+  }
+
+  document.querySelectorAll(".chip").forEach(c=>c.addEventListener("click",()=>{
+    document.querySelectorAll(".chip").forEach(x=>x.classList.remove("active"));
+    c.classList.add("active");applyFilter(c.dataset.filter);
+  }));
+
+  // modal: export / import
+  const modal=document.getElementById("modal"),mText=document.getElementById("modalText"),
+        mTitle=document.getElementById("modalTitle"),mHint=document.getElementById("modalHint"),
+        mActions=document.getElementById("modalActions");
+  function openModal(mode){
+    modal.hidden=false;mActions.innerHTML="";
+    if(mode==="export"){
+      mTitle.textContent="Экспорт прогресса";
+      mHint.textContent="Скопируй текст или скачай файл progress.json — его можно закоммитить в репозиторий и восстановить на другом устройстве.";
+      mText.value=JSON.stringify([...checked]);mText.readOnly=true;
+      const bc=document.createElement("button");bc.className="btn ghost";bc.textContent="Копировать";
+      bc.onclick=()=>{mText.select();try{document.execCommand("copy");bc.textContent="Скопировано";}catch(e){}};
+      const bd=document.createElement("button");bd.className="btn primary";bd.textContent="Скачать .json";
+      bd.onclick=()=>{
+        const blob=new Blob([mText.value],{type:"application/json"});
+        const url=URL.createObjectURL(blob);const a=document.createElement("a");
+        a.href=url;a.download="progress.json";a.click();URL.revokeObjectURL(url);
+      };
+      mActions.appendChild(bc);mActions.appendChild(bd);
+    }else{
+      mTitle.textContent="Импорт прогресса";
+      mHint.textContent="Вставь текст или выбери файл progress.json и нажми «Восстановить».";
+      mText.value="";mText.readOnly=false;
+      const apply=(txt)=>{try{const arr=JSON.parse(txt);if(Array.isArray(arr)){checked=new Set(arr);render();save();modal.hidden=true;}}catch(e){mHint.textContent="Не получилось прочитать — проверь данные.";}};
+      const file=document.createElement("input");file.type="file";file.accept="application/json,.json";
+      file.style.cssText="font-size:12px;flex:1";
+      file.onchange=()=>{const f=file.files[0];if(!f)return;const r=new FileReader();r.onload=()=>{mText.value=r.result;};r.readAsText(f);};
+      const b=document.createElement("button");b.className="btn primary";b.textContent="Восстановить";
+      b.onclick=()=>apply(mText.value);
+      mActions.appendChild(file);mActions.appendChild(b);
+    }
+  }
+  document.getElementById("exportBtn").onclick=()=>openModal("export");
+  document.getElementById("importBtn").onclick=()=>openModal("import");
+  document.getElementById("modalClose").onclick=()=>modal.hidden=true;
+  modal.addEventListener("click",e=>{if(e.target===modal)modal.hidden=true;});
+  document.getElementById("resetBtn").onclick=()=>{
+    if(confirm("Сбросить весь прогресс? Это нельзя отменить.")){checked=new Set();render();save();}
+  };
+
+  (async function init(){await load();render();})();
+})();
+</script>
