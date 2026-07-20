@@ -388,7 +388,7 @@
     if(code==="✓"||code==="🏁")return "";                       // контрольные/вехи — без страниц заметок
     const folder=NOTE_FOLDERS[String(stage.n)]||("stage-"+stage.n);
     let base=notesBase; if(base && !/\/$/.test(base)) base+="/";
-    return base+folder+"/"+encodeURIComponent(code)+".md";
+    return base+folder+"/"+encodeURIComponent(code)+"/README.md";
   }
   let checked=new Set();
   const stagesEl=document.getElementById("stages");
