@@ -6,6 +6,7 @@
         <h1>Frontend → AI Engineer</h1>
       </div>
       <div class="actions">
+        <button id="notesBtn" class="btn ghost" title="Куда ведут ссылки 📝 на заметки">📝 База</button>
         <button id="exportBtn" class="btn ghost" title="Сохранить копию прогресса">Экспорт</button>
         <button id="importBtn" class="btn ghost" title="Восстановить прогресс из копии">Импорт</button>
         <button id="resetBtn" class="btn ghost danger" title="Сбросить весь прогресс">Сброс</button>
@@ -128,6 +129,9 @@
   .star{color:#E0A82E;font-size:12px;margin-top:2px}
   .row.special .label{font-weight:560}
   .row.ctrl .code,.row.milestone .code{font-size:13px}
+  .row .note{margin-top:1px;flex-shrink:0;text-decoration:none;opacity:.3;font-size:13px;transition:opacity .15s}
+  .row:hover .note{opacity:.75}
+  .row .note:hover{opacity:1}
 
   .foot{margin-top:24px;color:var(--ink-soft);font-size:12.5px}
   .foot em{font-style:normal;font-weight:600;color:var(--ink)}
@@ -207,9 +211,10 @@
         ["1.1.9","Собственные значения и векторы","B"],["1.1.10","SVD, проекции","B"],
         ["✓","Контрольное: косинус-поиск на NumPy","A"]]},
       {name:"1.2 Математический анализ",items:[
-        ["1.2.1","Предел, непрерывность","B"],["1.2.2","Производная","A"],
+        ["1.2.1","Предел, непрерывность","B"],["1.2.2","Производная — интуитивно","A"],
+        ["1.2.2а","Линеаризация: f(x)≈f(a)+f'(a)(x−a)","A","*"],
         ["1.2.3","Правила, цепное правило","A"],["1.2.4","Частные производные, градиент","A","*"],
-        ["1.2.5","Градиентный спуск (интуиция)","A"],["1.2.6","Якобиан, гессиан","B"],
+        ["1.2.5","Производная в ML / градиентный спуск","A"],["1.2.6","Якобиан, гессиан","B"],
         ["1.2.7","Ряд Тейлора, интегралы","B"],["✓","Контрольное: градиентный спуск","A"]]},
       {name:"1.3 Теория вероятностей",items:[
         ["1.3.1","Вероятность, события","A"],["1.3.2","Условная вероятность","A"],
@@ -376,6 +381,15 @@
   ];
 
   const KEY="roadmap_tracker_v1";
+  const NOTE_FOLDERS={"SQL":"sql","0":"0-python","1":"1-math","2":"2-ml","3":"3-dl","4":"4-ai","5":"5-deploy"};
+  let notesBase="notes/";
+  try{ const nb=localStorage.getItem("notes_base"); if(nb) notesBase=nb; }catch(e){}
+  function noteLink(stage,code){
+    if(code==="✓"||code==="🏁")return "";                       // контрольные/вехи — без страниц заметок
+    const folder=NOTE_FOLDERS[String(stage.n)]||("stage-"+stage.n);
+    let base=notesBase; if(base && !/\/$/.test(base)) base+="/";
+    return base+folder+"/"+encodeURIComponent(code)+".md";
+  }
   let checked=new Set();
   const stagesEl=document.getElementById("stages");
 
@@ -443,20 +457,26 @@
         b.items.forEach(it=>{
           const id=it._id,isDone=checked.has(id);
           const special=it[0]==="✓"||it[0]==="🏁";
-          const row=document.createElement("label");
+          const row=document.createElement("div");
           row.className="row"+(isDone?" done":"")+(special?" special":"")+(it[0]==="✓"?" ctrl":"")+(it[0]==="🏁"?" milestone":"");
           row.dataset.id=id;row.dataset.tag=it[2];
+          const nl=noteLink(s,it[0]);
           row.innerHTML=
             '<input type="checkbox" class="cb" '+(isDone?"checked":"")+'>'+
             '<span class="code">'+it[0]+'</span>'+
             '<span class="label">'+it[1]+'</span>'+
             (it[3]==="*"?'<span class="star" title="ключевая тема">★</span>':'')+
-            tagHTML(it[2]);
+            tagHTML(it[2])+
+            (nl?'<a class="note" href="'+nl+'" target="_blank" rel="noopener" title="Заметки по теме">📝</a>':'');
           const cb=row.querySelector(".cb");
           cb.addEventListener("change",()=>{
             if(cb.checked)checked.add(id);else checked.delete(id);
             row.classList.toggle("done",cb.checked);
             update();save();
+          });
+          row.addEventListener("click",e=>{
+            if(e.target.closest(".note")||e.target.classList.contains("cb"))return;
+            cb.checked=!cb.checked;cb.dispatchEvent(new Event("change"));
           });
           body.appendChild(row);
         });
@@ -547,6 +567,15 @@
   document.getElementById("importBtn").onclick=()=>openModal("import");
   document.getElementById("modalClose").onclick=()=>modal.hidden=true;
   modal.addEventListener("click",e=>{if(e.target===modal)modal.hidden=true;});
+  document.getElementById("notesBtn").onclick=()=>{
+    const v=prompt(
+      "База ссылок на заметки (кнопка 📝 у каждой темы):\n\n"+
+      "• Оставь «notes/» — относительные пути (удобно в VS Code / локально).\n"+
+      "• Или вставь ссылку на GitHub, чтобы заметки открывались красиво, напр.:\n"+
+      "  https://github.com/USER/REPO/blob/main/notes/",
+      notesBase);
+    if(v!==null){ notesBase=v.trim()||"notes/"; try{localStorage.setItem("notes_base",notesBase);}catch(e){} render(); }
+  };
   document.getElementById("resetBtn").onclick=()=>{
     if(confirm("Сбросить весь прогресс? Это нельзя отменить.")){checked=new Set();render();save();}
   };
