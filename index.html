@@ -62,7 +62,7 @@
     --ink:#161A21; --ink-soft:#5A6472; --paper:#F7F8FA; --surface:#FFFFFF;
     --line:#E6E9EF; --line-soft:#EEF1F5;
     --a:#2563EB; --a-soft:#E8F0FE; --b:#8B7BC7; --b-soft:#F1EDFA;
-    --done:#15A05A; --danger:#C4453B;
+    --done:#15A05A; --danger:#C4453B; --warn:#E0A82E; --warn-soft:#FBF1DA;
     --radius:14px; --mono:ui-monospace,"SF Mono",Menlo,Consolas,monospace;
     --sans:system-ui,-apple-system,"Segoe UI",Roboto,sans-serif;
   }
@@ -118,6 +118,8 @@
   .row .cb{appearance:none;-webkit-appearance:none;width:18px;height:18px;border:1.6px solid var(--line);border-radius:5px;margin-top:1px;cursor:pointer;flex-shrink:0;display:grid;place-content:center;transition:.15s;background:#fff}
   .row .cb:checked{background:var(--done);border-color:var(--done)}
   .row .cb:checked::after{content:"";width:5px;height:9px;border:solid #fff;border-width:0 2px 2px 0;transform:rotate(45deg) translateY(-1px)}
+  .row .cb:indeterminate{background:var(--warn);border-color:var(--warn)}
+  .row .cb:indeterminate::after{content:"";width:8px;height:2px;border-radius:1px;background:#fff}
   .row .cb:focus-visible{outline:2px solid var(--a);outline-offset:2px}
   .code{font-family:var(--mono);font-size:11.5px;color:var(--ink-soft);min-width:46px;padding-top:1px;font-variant-numeric:tabular-nums}
   .label{flex:1;font-size:14px;padding-top:.5px}
@@ -126,12 +128,29 @@
   .tag.a{background:var(--a-soft);color:var(--a)}
   .tag.b{background:var(--b-soft);color:var(--b)}
   .tag.ab{background:linear-gradient(90deg,var(--a-soft),var(--b-soft));color:var(--a)}
-  .star{color:#E0A82E;font-size:12px;margin-top:2px}
+  .star{color:var(--warn);font-size:12px;margin-top:2px}
+  .prog-pill{font-family:var(--mono);font-size:10px;font-weight:600;color:#9a7415;background:var(--warn-soft);border:1px solid #EBD9A8;padding:1px 6px;border-radius:99px;margin-top:1px;flex-shrink:0;font-variant-numeric:tabular-nums;white-space:nowrap}
+  .prog-pill[hidden]{display:none}
   .row.special .label{font-weight:560}
   .row.ctrl .code,.row.milestone .code{font-size:13px}
   .row .note{margin-top:1px;flex-shrink:0;text-decoration:none;opacity:.3;font-size:13px;transition:opacity .15s}
   .row:hover .note{opacity:.75}
   .row .note:hover{opacity:1}
+  .row .twist{flex-shrink:0;color:var(--ink-soft);opacity:.55;margin-top:3px;transition:transform .18s,opacity .15s}
+  .row.expandable:hover .twist{opacity:1}
+  .row.open .twist{transform:rotate(90deg)}
+  .row.expandable .label{cursor:pointer}
+  .subrows{list-style:none;margin:0;padding:4px 17px 8px 63px;border-top:1px solid var(--line-soft);background:var(--paper)}
+  .subrows li{display:flex;align-items:flex-start;gap:9px;font-size:12.5px;color:var(--ink-soft);line-height:1.45;padding:4px 6px;border-radius:7px;cursor:pointer;transition:background .12s}
+  .subrows li:hover{background:var(--line-soft)}
+  .subrows .scb{appearance:none;-webkit-appearance:none;width:15px;height:15px;border:1.5px solid var(--line);border-radius:5px;margin-top:1px;cursor:pointer;flex-shrink:0;display:grid;place-content:center;transition:.15s;background:#fff}
+  .subrows .scb:checked{background:var(--done);border-color:var(--done)}
+  .subrows .scb:checked::after{content:"";width:4px;height:7px;border:solid #fff;border-width:0 2px 2px 0;transform:rotate(45deg) translateY(-1px)}
+  .subrows .scb:focus-visible{outline:2px solid var(--a);outline-offset:2px}
+  .subrows .stext{flex:1}
+  .subrows li.done .stext{text-decoration:line-through;text-decoration-color:var(--line);opacity:.7}
+  .subrows code{font-family:var(--mono);font-size:11px;background:var(--line-soft);color:var(--ink);padding:1px 4px;border-radius:4px}
+  .subrows[hidden]{display:none}
 
   .foot{margin-top:24px;color:var(--ink-soft);font-size:12.5px}
   .foot em{font-style:normal;font-weight:600;color:var(--ink)}
@@ -380,7 +399,245 @@
     ]}
   ];
 
-  const KEY="roadmap_tracker_v1";
+  const SUBTOPICS = {
+    "S.1": ["`SELECT`, `FROM`, `WHERE`, `ORDER BY`, `LIMIT`, `DISTINCT`", "Прямая аналогия с `df[...]`/`sort_values`/`head` из Pandas"],
+    "S.2": ["сравнения, `AND`/`OR`/`NOT`", "`IN`, `BETWEEN`, `LIKE`, `IS NULL`"],
+    "S.3": ["`GROUP BY`, `COUNT`/`SUM`/`AVG`/`MIN`/`MAX`", "`HAVING` (фильтр по агрегату)", "Это `groupby` из Этапа 0 на языке SQL"],
+    "S.4": ["`INNER JOIN`, `LEFT JOIN`", "связь таблиц по ключам", "чем left отличается от inner"],
+    "S.5": ["вложенные запросы и `WITH ... AS (...)` для читаемости", "CTE — твой главный инструмент структурирования сложных запросов"],
+    "S.6": ["`INSERT`/`UPDATE`/`DELETE`", "`CREATE TABLE`, типы колонок, `PRIMARY KEY`", "зачем нужны индексы (на уровне идеи «ускоряют поиск»)"],
+    "S.7": ["расширение `vector`, тип `vector(n)`", "операторы расстояния (`<=>` косинус, `<->` L2, `<#>` inner product)", "поиск ближайших через `ORDER BY ... LIMIT k`, индекс **HNSW**", "гибрид: векторный поиск + `WHERE`-фильтр по метаданным в одном запросе"],
+    "S.8": ["модель генерирует SQL по вопросу пользователя, твой код исполняет, результат возвращается", "Риски: SQL-инъекции, права доступа, разрушительные запросы", "только read-only роль, белый список таблиц, лимиты, валидация"],
+    "A.1": ["`UNION`/`INTERSECT`/`EXCEPT`", "подзапросы, цепочки `CTE`"],
+    "A.2": ["`CASE`, вычисляемые столбцы, неявные дубликаты"],
+    "A.3": ["типы, операторы, интервалы, группировка по периодам"],
+    "A.4": ["`OVER`, агрегаты без схлопывания строк", "`PARTITION BY`, `ORDER BY`"],
+    "A.5": ["`ROW_NUMBER`, `RANK`, `DENSE_RANK`, `NTILE`"],
+    "A.6": ["`LEAD`/`LAG`, `FIRST_VALUE`/`LAST_VALUE`"],
+    "A.7": ["меры центра и разброса, аналитические/перцентильные функции", "Прямой мост к Этапу 1.4 — те же понятия с другой стороны"],
+    "A.8": ["декомпозиция бизнес-вопроса на CTE-шаги, итеративная сборка ответа", "тот же навык, что анализ логов eval в Этапе 5"],
+    "0.1.1": ["Отступы вместо `{}`, отсутствие `;`, `snake_case` против `camelCase`", "`int` / `float` / `str` / `bool` / `None`; динамическая типизация", "Операторы, тернарник (`a if cond else b`), `is` vs `==`, truthy/falsy", "f-строки и форматирование"],
+    "0.1.2": ["`list`, `tuple` (неизменяемый), `dict`, `set` — соответствия `Array`/`Object`/`Map`/`Set`", "Срезы (`a[1:5:2]`), отрицательные индексы", "**List/dict/set comprehensions** — аналога в JS нет, освой как следует"],
+    "0.1.3": ["Позиционные и keyword-аргументы, значения по умолчанию, `*args` / `**kwargs`", "`lambda`, функции как объекты первого класса", "Распаковка (`a, *rest = [...]`)"],
+    "0.1.4": ["`class`, `__init__`, `self`; атрибуты класса vs экземпляра", "Dunder-методы (`__repr__`, `__eq__`, `__len__`, `__getitem__`)", "Наследование, `super()`, MRO (кратко)", "`@property`, `@staticmethod`, `@classmethod`", "`@dataclass` — главный рабочий инструмент для моделей данных"],
+    "0.1.5": ["Итерируемые объекты и протокол итерации", "Генераторы и `yield`, ленивые вычисления", "Декораторы (что это и как писать свой)", "Контекстные менеджеры и `with`"],
+    "0.1.6": ["Type hints (`list[int]`, `Optional`, `dict[str, float]`), `typing`, `mypy`", "`async` / `await` — почти 1:1 с JS, но event loop устроен иначе"],
+    "0.1.7": ["`import`, пакеты, `__init__.py`, `if __name__ == \"__main__\"`", "`pip`, `venv`; `requirements.txt` / `pyproject.toml`; кратко про `uv`"],
+    "0.2.1": ["`ndarray`, `dtype`, `shape`, `ndim`; чем массив отличается от списка", "Создание: `array`, `zeros`, `ones`, `arange`, `linspace`, `random`", "Индексация и срезы, булева индексация (маски), fancy indexing", "**Broadcasting** (правила выравнивания форм) — критично", "**Векторизация** vs циклы", "Оси (`axis=0/1`) и агрегации (`sum`, `mean`, `max`, `argmax`)", "`reshape`, `transpose`, конкатенация, `@` (матричное умножение)"],
+    "0.2.2": ["`Series` и `DataFrame`; чтение `read_csv` / `read_parquet`", "Индексация: `loc` (по меткам) vs `iloc` (по позициям)", "Фильтрация по условиям, добавление/удаление колонок", "Пропуски: `isna`, `fillna`, `dropna`", "`groupby` + агрегации; `merge` / `join` / `concat`", "`apply`, `map`, `value_counts`, `sort_values`", "Сводные таблицы (`pivot_table`)"],
+    "0.2.3": ["Matplotlib: `plot`, `scatter`, `hist`, `subplots`, подписи осей", "Seaborn: `histplot`, `boxplot`, `heatmap` корреляций, `pairplot`", "Когда какой график (распределение / связь / сравнение)"],
+    "0.3.1": ["Jupyter локально", "Google Colab и Kaggle Notebooks (бесплатный GPU)"],
+    "0.3.2": ["`venv` / `conda` / `uv`", "фиксация версий"],
+    "0.3.3": ["отличие лишь в `.gitignore` для данных/чекпойнтов", "большие файлы в Git не коммитят (DVC/Git LFS — на будущее)"],
+    "0.3.4": ["CLI (пропусти — рутина)"],
+    "0.4": ["**Mac (Apple Silicon, MPS-бэкенд PyTorch)** — годится для всего Этапа 0, классического ML, лёгких нейросетей и инференса/дообучения небольших моделей", "**Бесплатное облако (Colab / Kaggle)** — для обучения сетей с нуля, экспериментов с трансформерами на учебных масштабах", "**Платная GPU понадобится** на серьёзном дообучении LLM, обучении крупных трансформеров, долгих прогонах"],
+    "1.0.1": ["переменные, индексы (`x_i`)", "множества (ℝ, ℕ)", "знаки ∈, ∀, ∃, ⇒"],
+    "1.0.2": ["область определения/значений", "графики", "линейная/квадратичная/экспонента"],
+    "1.0.3": ["свойства степеней", "`log`, почему `log` превращает умножение в сложение", "`e`"],
+    "1.0.4": ["нотация Σ и ∏", "разворачивание в цикл"],
+    "1.0.5": ["оси, наклон прямой", "касательная (мостик к производной)"],
+    "1.1.1": ["вектор (геометрия + список чисел)", "сложение, умножение на скаляр", "координаты, размерность"],
+    "1.1.2": ["dot product", "длина вектора (норма L2)", "проекция, ортогональность"],
+    "1.1.3": ["угол между векторами", "формула через dot/нормы", "почему измеряет «похожесть» текстов"],
+    "1.1.4": ["матрица как таблица и набор векторов", "сложение, транспонирование", "размерности (shape)"],
+    "1.1.5": ["«строка на столбец»", "матрично-векторное произведение", "`@` в NumPy, некоммутативность"],
+    "1.1.6": ["как матрица «крутит/растягивает» пространство", "единичная матрица", "композиция"],
+    "1.1.7": ["линейная комбинация", "независимость", "базис, размерность, ранг"],
+    "1.1.8": ["смысл определителя", "обратимость", "решение `Ax=b`"],
+    "1.1.9": ["геометрический смысл", "характеристическое уравнение", "зачем (PCA)"],
+    "1.1.10": ["идея разложения", "связь с понижением размерности", "ортогональные проекции"],
+    "1.2.1": ["интуиция предела («к чему стремится»)", "непрерывность", "зачем это нужно для производной"],
+    "1.2.2": ["почему функцию хотят приближать прямой", "изменение функции Δy/Δx; почему Δx стремится к нулю", "производная как скорость изменения и наклон касательной в точке", "производные `x²`, `e^x`, `log x`"],
+    "1.2.2а": ["идея линейного приближения", "формула `f(x) ≈ f(a) + f'(a)(x−a)`; что означает каждое слагаемое", "почему приближение работает только рядом с точкой a", "фундамент градиентного спуска и backprop (маленький линейный шаг)"],
+    "1.2.3": ["степенная функция, сумма, произведение, частное", "цепное правило (основа backprop)"],
+    "1.2.4": ["функция нескольких переменных", "частная производная", "градиент как вектор направления наискорейшего роста", "его геометрический смысл"],
+    "1.2.5": ["функция ошибки (Loss) и параметры модели", "производная функции ошибки", "«спуск с горы», learning rate", "движение против градиента, локальные минимумы"],
+    "1.2.6": ["матрица частных производных (якобиан)", "кривизна (гессиан)", "зачем они в оптимизации"],
+    "1.2.7": ["ряд Тейлора как обобщение линеаризации (1.2.2а) на высшие степени", "интеграл как площадь"],
+    "1.3.1": ["вероятность, исходы", "события", "операции"],
+    "1.3.2": ["`P(A|B)`", "независимость", "цепное правило"],
+    "1.3.3": ["формула", "«обновление убеждений»", "base rate"],
+    "1.3.4": ["дискретные и непрерывные", "функция распределения", "плотность"],
+    "1.3.5": ["среднее как «центр»", "дисперсия/std как «разброс»"],
+    "1.3.6": ["Бернулли, биномиальное, нормальное `[A]`", "Пуассона, равномерное `[B]`"],
+    "1.3.7": ["из логитов в распределение", "связь с температурой сэмплирования"],
+    "1.3.8": ["стабилизация среднего", "«всё стремится к нормальному»"],
+    "1.4.1": ["среднее, медиана, мода", "дисперсия, std, квантили", "выбросы"],
+    "1.4.2": ["выборка", "смещение (bias)", "репрезентативность"],
+    "1.4.3": ["корреляция Пирсона", "«коррелирует ≠ причина»"],
+    "1.4.4": ["оценка с погрешностью", "стандартная ошибка"],
+    "1.4.5": ["нулевая гипотеза", "p-value", "ошибки I/II рода", "t-тест"],
+    "1.4.6": ["постановка", "размер выборки", "чтение результата"],
+    "1.4.7": ["оценка без предположений о распределении", "bootstrap на NumPy"],
+    "2.1.1": ["классификация, регрессия, ранжирование, кластеризация", "объекты, признаки, target"],
+    "2.1.2": ["зачем три выборки", "почему на тест нельзя «подглядывать»", "hold-out"],
+    "2.1.3": ["k-fold", "стратификация"],
+    "2.1.4": ["bias–variance", "кривые обучения"],
+    "2.1.5": ["масштабирование до сплита", "утечка таргета", "временна́я"],
+    "2.1.6": ["`fit/predict/transform`", "`Pipeline`", "`ColumnTransformer`"],
+    "2.2.1": ["confusion matrix", "accuracy, precision, recall, F1", "почему accuracy врёт при дисбалансе"],
+    "2.2.2": ["TPR/FPR, AUC", "precision-recall", "когда какая"],
+    "2.2.3": ["как сдвиг меняет precision/recall"],
+    "2.2.4": ["MAE, MSE, RMSE, R²", "чувствительность к выбросам"],
+    "2.2.5": ["precision@k, recall@k", "MAP, NDCG"],
+    "2.3.1": ["модель, MSE", "аналитическое решение vs градиентный спуск"],
+    "2.3.2": ["сигмоида", "вероятность из линейного выхода", "log-loss"],
+    "2.3.3": ["L2 (Ridge), L1 (Lasso), ElasticNet", "разреженность L1"],
+    "2.3.4": ["почему нужен один масштаб"],
+    "2.3.5": ["one-vs-rest", "softmax-регрессия"],
+    "2.3.6": ["почему log-loss", "вывод градиента", "максимальное правдоподобие"],
+    "2.4.1": ["разбиения", "критерии Gini/энтропия", "листья, правила"],
+    "2.4.2": ["ограничение глубины/листьев", "обрезка"],
+    "2.4.3": ["one-hot, label", "target encoding и его опасность"],
+    "2.4.4": ["Standard/MinMax", "стратегии заполнения", "индикаторы"],
+    "2.4.5": ["компоненты даты", "Bag-of-Words/TF-IDF (мост к эмбеддингам)"],
+    "2.5.1": ["bagging vs boosting"],
+    "2.5.2": ["бэггинг деревьев", "случайность признаков", "OOB"],
+    "2.5.3": ["последовательное исправление ошибок"],
+    "2.5.4": ["отличия XGBoost / LightGBM / CatBoost", "CatBoost (Яндекс) для категориальных"],
+    "2.5.5": ["grid/random search", "Optuna", "ранняя остановка"],
+    "2.6.1": ["встроенная и permutation важность"],
+    "2.6.2": ["фильтры (корреляция, χ²)", "обёртки (RFE)", "встроенные (L1)"],
+    "2.6.3": ["новые признаки", "агрегаты", "взаимодействия"],
+    "2.6.4": ["почему вредит линейным моделям"],
+    "2.7.1": ["feature/permutation importance"],
+    "2.7.2": ["вклад признаков", "локальная vs глобальная", "beeswarm"],
+    "2.7.3": ["среднее влияние признака"],
+    "2.8.1": ["алгоритм", "выбор k (локоть, силуэт)", "ограничения"],
+    "2.8.2": ["дендрограмма", "плотностная кластеризация"],
+    "2.8.3": ["снижение размерности через собственные векторы", "объяснённая дисперсия"],
+    "2.8.4": ["визуализация многомерных данных (эмбеддингов)"],
+    "3.1.1": ["взвешенная сумма + смещение + активация", "связь с логистической регрессией (Этап 2.3.2)"],
+    "3.1.2": ["скрытые слои", "почему нелинейность обязательна", "прямой проход (forward)"],
+    "3.1.3": ["sigmoid, tanh, ReLU, GELU", "проблема затухающих градиентов"],
+    "3.1.4": ["MSE (регрессия)", "кросс-энтропия (классификация)", "связь с softmax (Этап 1.3.7) и MLE"],
+    "3.1.5": ["почему не нулями", "Xavier/He инициализация"],
+    "3.2.1": ["представление функции как графа операций", "прямой и обратный проход"],
+    "3.2.2": ["распространение градиента по цепному правилу", "локальные градиенты узлов"],
+    "3.2.3": ["как фреймворк делает backprop автоматически", "свой micrograd"],
+    "3.2.4": ["SGD, momentum, RMSprop, Adam", "learning rate и его расписание"],
+    "3.2.5": ["dropout, weight decay", "batch/layer normalization", "early stopping"],
+    "3.3.1": ["создание, формы, типы, операции", "перенос на устройство (`cpu`/`mps`/`cuda`)"],
+    "3.3.2": ["`requires_grad`, `backward()`, `no_grad()`"],
+    "3.3.3": ["`Linear`, активации, `Sequential`", "свой класс модели"],
+    "3.3.4": ["`DataLoader`", "forward → loss → `backward` → `optimizer.step()` → `zero_grad()`"],
+    "3.3.5": ["`state_dict`, `eval()`", "инференс без градиентов"],
+    "3.3.6": ["забытый `zero_grad`", "режим train/eval", "логиты vs softmax", "несовпадение форм"],
+    "3.4.1": ["что такое фильтр", "как «скользит» по изображению", "feature maps"],
+    "3.4.2": ["max/avg pooling", "чередование conv→pool", "классификатор сверху"],
+    "3.4.3": ["LeNet, ResNet", "остаточные связи (всплывёт в трансформерах)"],
+    "3.4.4": ["дообучение предобученной сети на своей задаче"],
+    "3.5.1": ["скрытое состояние", "обработка последовательности по шагам"],
+    "3.5.2": ["затухание/взрыв градиентов на длинных последовательностях"],
+    "3.5.3": ["гейты, ячейка памяти", "как решают проблему долгих зависимостей"],
+    "3.5.4": ["энкодер-декодер", "почему один вектор-«бутылочное горлышко» — это плохо (мотивация attention)"],
+    "3.6.1": ["идея «каждый токен смотрит на все остальные»", "query/key/value", "веса внимания"],
+    "3.6.2": ["внимание внутри одной последовательности", "матричная формула `softmax(QKᵀ/√d)V`"],
+    "3.6.3": ["несколько «голов», зачем", "конкатенация"],
+    "3.6.4": ["почему трансформеру нужно явно сообщать порядок токенов"],
+    "3.6.5": ["блоки: attention + FFN + residual + LayerNorm", "энкодер vs декодер", "маскированное внимание"],
+    "3.6.6": ["собрать декодер-трансформер по «Attention is All You Need»", "обучить char-level"],
+    "3.6.7": ["почему длинный контекст дорогой (квадратичность attention)", "что такое размер контекста"],
+    "3.7.1": ["что такое токен, Byte-Pair Encoding (BPE)", "почему «слово ≠ токен»", "как токенизация влияет на стоимость и баги"],
+    "3.7.2": ["векторное представление смысла", "word2vec (идея)", "контекстные эмбеддинги"],
+    "3.7.3": ["предсказание следующего токена", "авторегрессия", "perplexity"],
+    "3.7.4": ["greedy, temperature, top-k, top-p", "связь с softmax (Этап 1.3.7)"],
+    "3.7.5": ["pretraining, fine-tuning", "instruction tuning, RLHF (на уровне понятий)"],
+    "4.1.1": ["закрытые (GPT, Claude, Gemini) vs открытые (Llama, Mistral, Qwen, DeepSeek)", "как выбирать под задачу/цену/приватность"],
+    "4.1.2": ["роли `system`/`user`/`assistant`", "передача истории диалога", "многоходовость"],
+    "4.1.3": ["input/output токены", "ценообразование", "контекстное окно", "подсчёт стоимости запроса"],
+    "4.1.4": ["temperature, top_p, max_tokens, stop", "связь с Этапом 3.7.4"],
+    "4.1.5": ["потоковая выдача токенов (SSE/streams)"],
+    "4.1.6": ["JSON mode", "схемы (tool/function)", "валидация через Pydantic"],
+    "4.1.7": ["vision (картинки на вход)", "аудио"],
+    "4.2.1": ["задание поведения", "персоны", "ограничений"],
+    "4.2.2": ["обучение примерами в промпте"],
+    "4.2.3": ["пошаговое рассуждение", "reasoning-модели", "когда они оправданы (дороже/медленнее)"],
+    "4.2.4": ["инструкции в начале/конце", "XML/JSON-разметка", "разделители"],
+    "4.2.5": ["разбиение сложной задачи на цепочку вызовов"],
+    "4.2.6": ["что положить в окно, в каком порядке", "как держать свежим", "recency/primacy bias, «потеря в середине»"],
+    "4.2.7": ["промпт как эмпирическая наука", "менять по одному, мерить"],
+    "4.3.1": ["что это, размерность вектора", "закрытые (OpenAI embeddings) vs открытые (sentence-transformers)", "мультиязычные"],
+    "4.3.2": ["косинус на практике (Этап 1.1.3)", "ранжирование по близости"],
+    "4.3.3": ["разбиение документов на куски", "размер/перекрытие", "чанкинг по смыслу"],
+    "4.3.4": ["семантический vs ключевой (BM25) vs гибридный"],
+    "4.3.5": ["переупорядочивание кандидатов отдельной моделью для точности"],
+    "4.4.1": ["приближённый поиск ближайших соседей (ANN)", "почему не перебор"],
+    "4.4.2": ["pgvector (расширение Postgres)", "Qdrant, Chroma, Pinecone, Weaviate, FAISS"],
+    "4.4.3": ["HNSW", "метрики расстояния (косинус, L2, dot)"],
+    "4.4.4": ["гибрид «вектор + фильтр по полям»"],
+    "4.4.5": ["managed vs self-hosted", "когда хватает pgvector"],
+    "4.5.1": ["индексация (загрузка → чанки → эмбеддинги → БД)", "извлечение → дополнение промпта → генерация"],
+    "4.5.2": ["нерелевантные чанки", "галлюцинации", "шум"],
+    "4.5.3": ["query rewriting", "гибридный поиск", "re-ranking", "contextual retrieval"],
+    "4.5.4": ["ссылки на источники", "«отвечай только по контексту»"],
+    "4.5.5": ["«потеря в середине»", "размер контекста", "когда RAG vs длинный контекст vs fine-tuning"],
+    "4.6.1": ["схема инструмента", "цикл «модель просит инструмент → код выполняет → результат назад»"],
+    "4.6.2": ["чередование рассуждения и действий"],
+    "4.6.3": ["многошаговые задачи", "краткосрочная/долгосрочная память"],
+    "4.6.4": ["оркестратор + специализированные агенты"],
+    "4.6.5": ["лимит шагов", "обработка ошибок инструментов", "человек-в-цикле"],
+    "4.6.6": ["не давать необратимых действий без подтверждения", "данные из инструментов — это данные, а не команды"],
+    "4.7.1": ["почему отдельные коннекторы не масштабируются"],
+    "4.7.2": ["host / client / server", "JSON-RPC", "сессии"],
+    "4.7.3": ["tools (действия)", "resources (данные только для чтения)", "prompts (шаблоны)"],
+    "4.7.4": ["подключение существующих (файлы, Postgres, GitHub) к MCP-хосту"],
+    "4.7.5": ["экспонирование своего API как MCP-сервера"],
+    "4.8.1": ["почему «на глаз» не работает", "регрессии при смене модели/промпта"],
+    "4.8.2": ["тестовые наборы", "эталонные ответы", "золотой датасет"],
+    "4.8.3": ["контекстная релевантность", "faithfulness (верность контексту)", "answer relevance"],
+    "4.8.4": ["модель как оценщик", "его плюсы и подвохи (смещения)"],
+    "4.8.5": ["RAGAS, TruLens, LangSmith", "простые самописные харнессы"],
+    "4.8.6": ["логирование", "обратная связь пользователей", "A/B (Этап 1.4.6)"],
+    "4.9.1": ["что это, граф-агенты (LangGraph)", "типичная критика «слишком много магии»"],
+    "4.9.2": ["заточен под RAG/работу с данными"],
+    "4.9.3": ["TypeScript-first", "стриминг", "generative UI"],
+    "4.9.4": ["Semantic Kernel, Haystack", "чистый SDK провайдера"],
+    "4.9.5": ["экосистема меняется каждые месяцы", "не вмораживайся в один фреймворк", "держи логику отделённой"],
+    "4.10.1": ["честный чек-лист «сначала попробуй промпт/RAG»"],
+    "4.10.2": ["дешёвое дообучение малой части весов"],
+    "4.10.3": ["превращение базовой модели в «послушную»"],
+    "4.10.4": ["нужна GPU", "учебная LoRA на малой модели влезает в бесплатный Colab", "серьёзное — платная аренда"],
+    "5.1.1": ["токены/сек", "латентность", "throughput", "KV-кэш", "prompt caching"],
+    "5.1.2": ["GGUF, AWQ, GPTQ, bitsandbytes", "компромисс размер/скорость/качество"],
+    "5.1.3": ["Ollama на Mac (MPS)", "когда локально оправдано (приватность, оффлайн, цена)"],
+    "5.1.4": ["провайдерские API", "vLLM/TGI для самостоятельного сервинга", "speculative decoding (обзор)"],
+    "5.1.5": ["выбор модели под задачу", "роутер моделей (мощная → средняя → дешёвая)", "кэширование", "ограничение длины"],
+    "5.2.1": ["FastAPI (стандарт в вакансиях)", "асинхронность", "стриминг ответов клиенту"],
+    "5.2.2": ["твой React-стек: стриминг", "generative UI", "отображение источников", "Vercel AI SDK"],
+    "5.2.3": ["фронт на Vercel, бэк на Modal/Railway/Fly", "переменные окружения", "секреты ключей"],
+    "5.2.4": ["серверное хранение ключей (никогда на клиенте)", "rate limiting", "защита от перерасхода"],
+    "5.2.5": ["Hugging Face Spaces / Streamlit / Gradio как быстрый способ показать"],
+    "5.2.6": ["упаковка приложения в образ", "`Dockerfile`, переменные окружения", "запуск контейнера", "кратко про деплой контейнера в облако (включая Yandex Cloud для РФ-рынка)"],
+    "5.3.1": ["логирование вызовов, трейсы агентов", "LangSmith, Langfuse, Helicone", "OpenTelemetry как стандарт"],
+    "5.3.2": ["онлайн-eval на трейсах (LLM-as-judge)", "алерты на регрессии", "отслеживание task success / latency / cost-per-task"],
+    "5.3.3": ["OWASP Top 10 for LLM Applications", "**prompt injection**, особенно непрямой через извлечённые документы («новый XSS»)"],
+    "5.3.4": ["фильтрация входа/выхода (Llama Guard, NeMo Guardrails)", "ограничение области инструментов", "структурированный вывод как ограничение"],
+    "5.3.5": ["агент совершает необратимые действия вне замысла", "митигации: минимальные привилегии инструментов, человек-в-цикле, kill switch"],
+    "5.4.1": ["промпт в гите с changelog", "к каждому изменению привязан eval-результат"],
+    "5.4.2": ["трекинг прогонов (Weights & Biases / простые таблицы)", "воспроизводимость"],
+    "5.4.3": ["автотесты + eval как «ship gate» в пайплайне (тебе CI/CD знаком)"],
+    "5.4.4": ["что нельзя слать в API", "PII", "требования (для EU — про AI Act полезно знать)"],
+    "5.5.1": ["RAG-приложение: загрузка документов → векторный поиск с re-ranking → ответы с цитатами → eval-дашборд", "показывает: RAG, эмбеддинги, векторная БД, eval, деплой", "фронтенд-угол: стриминг, подсветка источников, приятный UX"],
+    "5.5.2": ["Агент с tool use (поиск, вызовы API), динамически рендерит UI (графики, формы, карточки) через Vercel AI SDK", "показывает: агенты, function calling, надёжность, безопасность инструментов", "фронтенд-угол: generative UI"],
+    "5.5.3": ["Веб-инструмент сравнения промптов/моделей с метриками (RAGAS, LLM-судья)", "трекинг стоимости и латентности, A/B", "показывает: eval-грамотность + cost-мышление", "фронтенд-угол: дашборды и визуализация"],
+    "5.5.4": ["Свой MCP-сервер (обёртка над реальным API/данными) + хост-UI, либо подключение готовых серверов", "показывает: MCP — горячий навык 2026, плюс твой опыт интеграций"],
+    "5.6.1": ["расскажи про eval, который ты спроектировал", "подготовь конкретный пример из Проекта 1/3"],
+    "5.6.2": ["оцени стоимость 10-ходового диалога (8K вход / 1K выход на ход)", "спроектируй роутер моделей (мощная→средняя→дешёвая)"],
+    "5.6.3": ["назови 3 категории OWASP LLM Top 10 без подсказки", "объясни LLM06 Excessive Agency и митигации (минимальные привилегии, человек-в-цикле, kill switch)"],
+    "5.6.4": ["спроектируй RAG для корпоративного поиска: чанкинг, гибридный поиск, re-ranking, eval, борьба с галлюцинациями"],
+    "5.6.5": ["обоснуй выбор fine-tune vs RAG vs prompt по стоимости/латентности/точности"],
+    "5.6.6": ["покажи 3 вектора инъекции в данном системном промпте и митигации за 15 минут"],
+    "5.6.7": ["системный дизайн LLM-приложения", "поведенческое интервью (история смены профессии — превращай фронтенд-опыт в плюс)"],
+    "5.7.1": ["«AI/ML Engineer, специализация — LLM-системы и full-stack AI»", "подавайся в full-stack-AI/LLM-роли, где твой фронтенд — преимущество"],
+    "5.7.2": ["точно матчи название роли из вакансии", "буллеты с измеримыми результатами (срезал стоимость инференса на X%, eval-скор Y, латентность Z)"],
+    "5.7.3": ["стартапы и продуктовые компании, EU-листинги (Mistral, Provectus, T-Systems и др.), удалёнка", "знание EU AI Act — плюс для европейского рынка"],
+    "5.7.4": ["для непрофильных ролей AWS ML / GCP ML дают премию к зарплате ~20–25%", "бери, если целевые компании на конкретном облаке", "для самоучки с портфолио — не обязательны"],
+    "5.7.5": ["GitHub с живыми проектами", "короткие посты/демо в соцсетях", "вклад в open-source (MCP-серверы, инструменты)"],
+  };
+
+  const KEY="roadmap_tracker_v2";
+  const LEGACY_KEY="roadmap_tracker_v1";
   const NOTE_FOLDERS={"SQL":"sql","0":"0-python","1":"1-math","2":"2-ml","3":"3-dl","4":"4-ai","5":"5-deploy"};
   let notesBase="notes/";
   try{ const nb=localStorage.getItem("notes_base"); if(nb) notesBase=nb; }catch(e){}
@@ -395,6 +652,40 @@
 
   // build stable ids
   DATA.forEach((s,si)=>s.blocks.forEach((b,bi)=>b.items.forEach((it,ii)=>{it._id=si+"-"+bi+"-"+ii;})));
+
+  // сколько подпунктов у каждого пункта (0 = только собственный чекбокс)
+  const SUBCOUNT={};
+  DATA.forEach(s=>s.blocks.forEach(b=>b.items.forEach(it=>{
+    const special=it[0]==="✓"||it[0]==="🏁";
+    const sub=SUBTOPICS[it[0]];
+    SUBCOUNT[it._id]=(!special&&sub&&sub.length)?sub.length:0;
+  })));
+  function subKey(id,i){return id+"#"+i;}
+  // [сделано, всего] по подпунктам; для пунктов без подпунктов — [собственный чекбокс?1:0, 0]
+  function itemCount(id){
+    const n=SUBCOUNT[id];
+    if(!n) return [checked.has(id)?1:0, 0];
+    let d=0; for(let i=0;i<n;i++) if(checked.has(subKey(id,i))) d++;
+    return [d,n];
+  }
+  function itemDone(id){
+    const n=SUBCOUNT[id];
+    if(!n) return checked.has(id);
+    for(let i=0;i<n;i++) if(!checked.has(subKey(id,i))) return false;
+    return true;
+  }
+  // старый формат (id пунктов) → новый (листья подпунктов); безопасно и на новых данных
+  function migrate(arr){
+    const out=new Set();
+    (arr||[]).forEach(k=>{
+      if(typeof k!=="string") return;
+      if(k.indexOf("#")>=0){ out.add(k); return; }   // уже лист подпункта
+      const n=SUBCOUNT[k];
+      if(n){ for(let i=0;i<n;i++) out.add(subKey(k,i)); } // пункт с подпунктами → все подпункты
+      else out.add(k);                                    // пункт без подпунктов
+    });
+    return out;
+  }
 
   function isA(tag){return tag==="A"||tag==="AB";}
   const totalAll=DATA.reduce((a,s)=>a+s.blocks.reduce((x,b)=>x+b.items.length,0),0);
@@ -412,20 +703,28 @@
     clearTimeout(saveTimer);saveTimer=setTimeout(()=>ss.classList.remove("show"),1200);
   }
   async function load(){
-    // сначала localStorage (GitHub Pages / обычный браузер)
+    // 1) новый формат v2 — localStorage (GitHub Pages / обычный браузер)
     try{
       if(window.localStorage){
         const v=localStorage.getItem(KEY);
         if(v){ checked=new Set(JSON.parse(v)); return; }
       }
     }catch(e){}
-    // затем артефактное хранилище Claude
+    // 2) новый формат v2 — артефактное хранилище Claude
     try{
       if(window.storage&&window.storage.get){
         const r=await window.storage.get(KEY);
-        if(r&&r.value){ checked=new Set(JSON.parse(r.value)); }
+        if(r&&r.value){ checked=new Set(JSON.parse(r.value)); return; }
       }
-    }catch(e){ checked=new Set(); }
+    }catch(e){}
+    // 3) миграция со старого формата v1 (отметки по пунктам → по подпунктам)
+    try{
+      let legacy=null;
+      if(window.localStorage){ const lv=localStorage.getItem(LEGACY_KEY); if(lv) legacy=JSON.parse(lv); }
+      if(!legacy && window.storage&&window.storage.get){ const lr=await window.storage.get(LEGACY_KEY); if(lr&&lr.value) legacy=JSON.parse(lr.value); }
+      if(legacy){ checked=migrate(legacy); await save(); return; }   // сохранить уже в v2
+    }catch(e){}
+    checked=new Set();
   }
 
   function tagHTML(tag){
@@ -433,12 +732,26 @@
     const txt=tag==="AB"?"A+B":tag;
     return '<span class="tag '+cls+'">'+txt+'</span>';
   }
+  function esc(s){return String(s).replace(/&/g,"&amp;").replace(/</g,"&lt;").replace(/>/g,"&gt;");}
+  function subHTML(t){return esc(t).replace(/`([^`]+)`/g,'<code>$1</code>');}
+
+  // пересчитать состояние родительского пункта из его подпунктов
+  function refreshItem(row,id){
+    const cnt=itemCount(id), d=cnt[0], n=cnt[1];
+    const cb=row.querySelector(".cb");
+    const full=n>0&&d===n, part=d>0&&d<n;
+    cb.checked=full; cb.indeterminate=part;
+    row.classList.toggle("done",full);
+    row.classList.toggle("partial",part);
+    const pill=row.querySelector(".prog-pill");
+    if(pill){ if(part){pill.hidden=false;pill.textContent=d+"/"+n;} else pill.hidden=true; }
+  }
 
   function render(){
     stagesEl.innerHTML="";
     DATA.forEach((s,si)=>{
       const items=s.blocks.flatMap(b=>b.items);
-      const done=items.filter(i=>checked.has(i._id)).length;
+      const done=items.filter(i=>itemDone(i._id)).length;
       const stage=document.createElement("section");
       stage.className="stage"+(done===items.length&&done>0?"":"");
       stage.innerHTML=
@@ -455,30 +768,71 @@
       s.blocks.forEach(b=>{
         const bn=document.createElement("div");bn.className="block-name";bn.textContent=b.name;body.appendChild(bn);
         b.items.forEach(it=>{
-          const id=it._id,isDone=checked.has(id);
+          const id=it._id;
           const special=it[0]==="✓"||it[0]==="🏁";
+          const sub=SUBTOPICS[it[0]];
+          const expandable=!special&&sub&&sub.length;
           const row=document.createElement("div");
-          row.className="row"+(isDone?" done":"")+(special?" special":"")+(it[0]==="✓"?" ctrl":"")+(it[0]==="🏁"?" milestone":"");
+          row.className="row"+(special?" special":"")+(it[0]==="✓"?" ctrl":"")+(it[0]==="🏁"?" milestone":"")+(expandable?" expandable":"");
           row.dataset.id=id;row.dataset.tag=it[2];
           const nl=noteLink(s,it[0]);
           row.innerHTML=
-            '<input type="checkbox" class="cb" '+(isDone?"checked":"")+'>'+
+            '<input type="checkbox" class="cb"'+(expandable?' title="отметить/снять все подпункты"':'')+'>'+
             '<span class="code">'+it[0]+'</span>'+
+            (expandable?'<svg class="twist" width="11" height="11" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="3" aria-hidden="true"><path d="M9 6l6 6-6 6"/></svg>':'')+
             '<span class="label">'+it[1]+'</span>'+
+            (expandable?'<span class="prog-pill" hidden></span>':'')+
             (it[3]==="*"?'<span class="star" title="ключевая тема">★</span>':'')+
             tagHTML(it[2])+
             (nl?'<a class="note" href="'+nl+'" target="_blank" rel="noopener" title="Заметки по теме">📝</a>':'');
           const cb=row.querySelector(".cb");
-          cb.addEventListener("change",()=>{
-            if(cb.checked)checked.add(id);else checked.delete(id);
-            row.classList.toggle("done",cb.checked);
-            update();save();
-          });
+          body.appendChild(row);
+          let subEl=null;
+          if(expandable){
+            subEl=document.createElement("ul");
+            subEl.className="subrows";subEl.hidden=true;
+            subEl.innerHTML=sub.map((t,i)=>
+              '<li data-i="'+i+'"><input type="checkbox" class="scb"><span class="stext">'+subHTML(t)+'</span></li>').join("");
+            body.appendChild(subEl);
+            subEl.querySelectorAll("li").forEach(li=>{
+              const i=+li.dataset.i, scb=li.querySelector(".scb"), key=subKey(id,i);
+              scb.checked=checked.has(key); li.classList.toggle("done",scb.checked);
+              const toggle=()=>{
+                if(scb.checked)checked.add(key);else checked.delete(key);
+                li.classList.toggle("done",scb.checked);
+                refreshItem(row,id);update();save();
+              };
+              scb.addEventListener("change",toggle);
+              li.addEventListener("click",e=>{ if(e.target===scb)return; scb.checked=!scb.checked; toggle(); });
+            });
+            // родительский чекбокс: отметить/снять все подпункты
+            cb.addEventListener("change",()=>{
+              const target=!itemDone(id);   // сделан → снять все; иначе → отметить все
+              for(let i=0;i<SUBCOUNT[id];i++){ if(target)checked.add(subKey(id,i));else checked.delete(subKey(id,i)); }
+              subEl.querySelectorAll("li").forEach(li=>{
+                const i=+li.dataset.i, scb=li.querySelector(".scb");
+                scb.checked=checked.has(subKey(id,i)); li.classList.toggle("done",scb.checked);
+              });
+              refreshItem(row,id);update();save();
+            });
+            refreshItem(row,id);
+          }else{
+            cb.checked=checked.has(id); row.classList.toggle("done",cb.checked);
+            cb.addEventListener("change",()=>{
+              if(cb.checked)checked.add(id);else checked.delete(id);
+              row.classList.toggle("done",cb.checked);
+              update();save();
+            });
+          }
           row.addEventListener("click",e=>{
             if(e.target.closest(".note")||e.target.classList.contains("cb"))return;
+            if(expandable){
+              const open=row.classList.toggle("open");
+              subEl.hidden=!open;subEl.style.display=open?"":"none";
+              return;
+            }
             cb.checked=!cb.checked;cb.dispatchEvent(new Event("change"));
           });
-          body.appendChild(row);
         });
       });
       const head=stage.querySelector(".stage-head");
@@ -492,8 +846,10 @@
   }
 
   function update(){
-    const doneAll=[...checked].length;
-    let doneA=0;DATA.forEach(s=>s.blocks.forEach(b=>b.items.forEach(i=>{if(isA(i[2])&&checked.has(i._id))doneA++;})));
+    let doneAll=0,doneA=0;
+    DATA.forEach(s=>s.blocks.forEach(b=>b.items.forEach(i=>{
+      if(itemDone(i._id)){ doneAll++; if(isA(i[2]))doneA++; }
+    })));
     const pa=totalA?Math.round(doneA/totalA*100):0, pall=totalAll?Math.round(doneAll/totalAll*100):0;
     document.getElementById("aFill").style.width=pa+"%";
     document.getElementById("allFill").style.width=pall+"%";
@@ -503,7 +859,7 @@
     document.getElementById("allCount").textContent=doneAll+" / "+totalAll+" пунктов всего";
     document.querySelectorAll(".stage").forEach((st,si)=>{
       const items=DATA[si].blocks.flatMap(b=>b.items);
-      const d=items.filter(i=>checked.has(i._id)).length;
+      const d=items.filter(i=>itemDone(i._id)).length;
       st.querySelector(".stage-prog").textContent=d+"/"+items.length;
       st.querySelector(".mf").style.width=(items.length?d/items.length*100:0)+"%";
     });
@@ -513,15 +869,22 @@
   function applyFilter(f){
     currentFilter=f;
     document.querySelectorAll(".row").forEach(r=>{
-      const tag=r.dataset.tag, done=checked.has(r.dataset.id);
+      const tag=r.dataset.tag, done=itemDone(r.dataset.id);
       let show=true;
       if(f==="a")show=isA(tag);
       else if(f==="todo")show=!done;
       r.style.display=show?"":"none";
+      const sub=r.nextElementSibling;
+      if(sub&&sub.classList.contains("subrows")){
+        sub.style.display=(show&&r.classList.contains("open"))?"":"none";
+      }
     });
     document.querySelectorAll(".block-name").forEach(bn=>{
       let n=bn.nextElementSibling, any=false;
-      while(n&&n.classList.contains("row")){if(n.style.display!=="none")any=true;n=n.nextElementSibling;}
+      while(n&&(n.classList.contains("row")||n.classList.contains("subrows"))){
+        if(n.classList.contains("row")&&n.style.display!=="none")any=true;
+        n=n.nextElementSibling;
+      }
       bn.style.display=any?"":"none";
     });
   }
@@ -554,7 +917,7 @@
       mTitle.textContent="Импорт прогресса";
       mHint.textContent="Вставь текст или выбери файл progress.json и нажми «Восстановить».";
       mText.value="";mText.readOnly=false;
-      const apply=(txt)=>{try{const arr=JSON.parse(txt);if(Array.isArray(arr)){checked=new Set(arr);render();save();modal.hidden=true;}}catch(e){mHint.textContent="Не получилось прочитать — проверь данные.";}};
+      const apply=(txt)=>{try{const arr=JSON.parse(txt);if(Array.isArray(arr)){checked=migrate(arr);render();save();modal.hidden=true;}}catch(e){mHint.textContent="Не получилось прочитать — проверь данные.";}};
       const file=document.createElement("input");file.type="file";file.accept="application/json,.json";
       file.style.cssText="font-size:12px;flex:1";
       file.onchange=()=>{const f=file.files[0];if(!f)return;const r=new FileReader();r.onload=()=>{mText.value=r.result;};r.readAsText(f);};
