@@ -1,22 +1,27 @@
-# Практика SQL для ML-инженера
+# Практика A — Аналитический SQL (закрепление спринтов Практикума)
 
-Исчерпывающий набор заданий, покрывающий **все функции из твоих спринтов Практикума** (JOIN, множества, подзапросы, CTE, CASE, даты, оконные/ранжирующие/смещения, описательная статистика, ad-hoc) — но на данных, похожих на реальную работу AI Engineer: логи прогонов LLM, метрики eval, версии промптов, обратная связь пользователей.
+Набор заданий под **блок A**: множества, `CASE`, даты, **оконные функции**, ранжирование, смещения, перцентили, ad-hoc-декомпозиция — всё из твоих спринтов 1–2 Практикума, но на данных, похожих на реальную работу AI Engineer: логи прогонов LLM, метрики eval, версии промптов, обратная связь.
 
----
-
-## Песочница: не собираю своё — используем готовое (так лучше)
-
-Я мог бы собрать HTML-песочницу с запуском SQL в браузере (через WASM-Postgres), но **честно — это хуже готовых**: хрупко, неполный диалект, и не переносится на реальную работу. Рекомендую проверенные:
-
-1. **Быстрый разовый прогон — [DB Fiddle](https://www.db-fiddle.com/)** *(проверено на июль 2026).* Выбери слева **PostgreSQL** (последнюю версию), вставь seed-схему ниже в левое поле «Schema SQL», запросы — в правое, жми Run. Ничего ставить не надо.
-2. **Постоянная своя база — [Neon](https://neon.tech/)** или **[Supabase](https://supabase.com/)** *(бесплатный tier, реальный Postgres).* Один раз заливаешь seed через их веб-SQL-редактор — и база живёт. Плюс: позже подключишься к ней из Python и добавишь `pgvector` — прямой мост к Этапу 4 (RAG).
-3. **Структурированный тренажёр с автопроверкой — [PGExercises](https://pgexercises.com/)** *(бесплатно, проверено на июль 2026).* Отдельный сайт с живым раннером и решениями: select/where → joins → aggregates → dates → **window functions** → recursive. Идеально «добить» технику на нейтральных данных.
-
-**Мой план для тебя:** (1) прогони PGExercises до раздела window functions — это отшлифует синтаксис; (2) затем сделай задания ниже на seed-данных в DB Fiddle или Neon — это перенесёт навык на ML-контекст.
+> **Порядок прохождения:**
+> 1. Сначала → [практика S (рабочий SQL для LLM)](../S-практика/README.md): выборки, джойны, CTE, изменение данных, **pgvector**, text-to-SQL.
+> 2. Затем → **этот файл** (аналитика A.1–A.8).
+> 3. В конце → [**оверол S+A**](#-оверол-sa--капстоун) внизу этой страницы — капстоун на всё сразу.
+>
+> Базовые `SELECT`/`JOIN`/агрегаты (S.1–S.4) намеренно **не дублируются** здесь — они в S-практике. Тут сразу аналитика.
 
 ---
 
-## Seed-схема (скопируй в песочницу один раз)
+## Песочница
+
+1. **Быстрый прогон — [DB Fiddle](https://www.db-fiddle.com/)** *(проверено на июль 2026).* Выбери **PostgreSQL**, вставь seed ниже в «Schema SQL», запросы — справа, Run.
+2. **Постоянная база — [Neon](https://neon.tech/) / [Supabase](https://supabase.com/)** *(бесплатный tier).* Заливаешь seed один раз — база живёт; к ней же подключишь pgvector из S-практики.
+3. **Тренажёр с автопроверкой — [PGExercises](https://pgexercises.com/)**: разделы **window functions** и recursive отшлифуют технику A.4–A.6 на нейтральных данных.
+
+**Мой план:** (1) прогони PGExercises до window functions — отточит синтаксис; (2) затем задания ниже на seed-данных — перенесут навык на ML-контекст.
+
+---
+
+## Seed-схема (та же, что в S-практике — скопируй один раз)
 
 <details>
 <summary>📦 Показать SQL для создания и наполнения таблиц</summary>
@@ -110,66 +115,16 @@ INSERT INTO feedback VALUES
 ```
 </details>
 
+> 💡 В нескольких заданиях используется **стоимость прогона** — её как CTE `costs` ты собрала в [S-практике №9](../S-практика/README.md): `tokens_in/1000*price_in + tokens_out/1000*price_out`. Здесь она встроена в решения там, где нужна.
+
 ---
 
 ## Задания (от простого к сложному)
 
-Каждое — реальный вопрос, который задаёт себе ML-инженер. Решай сам, потом раскрывай решение для сверки. Цель — покрыть **все** функции, а не «нарешать много».
-
-### Базовая выборка и фильтрация (S.1–S.2)
-**1.** Выведи все прогоны со статусом не `ok`, отсортированные по латентности убыванием.
-<details><summary>решение</summary>
-
-```sql
-SELECT * FROM runs WHERE status <> 'ok' ORDER BY latency_ms DESC;
-```
-Покрывает: `WHERE`, `<>`, `ORDER BY`.
-</details>
-
-**2.** Найди прогоны, где `tokens_in` между 1000 и 1300 И промпт относится к `support_rag` (pv_id 1–3). Используй `IN` и `BETWEEN`.
-<details><summary>решение</summary>
-
-```sql
-SELECT run_id, tokens_in, pv_id
-FROM runs
-WHERE tokens_in BETWEEN 1000 AND 1300 AND pv_id IN (1,2,3);
-```
-</details>
-
-### Агрегация (S.3)
-**3.** Для каждой модели: число прогонов, средняя латентность, максимальная латентность. Оставь только модели с ≥ 3 прогонами (`HAVING`).
-<details><summary>решение</summary>
-
-```sql
-SELECT model_id, COUNT(*) AS runs, AVG(latency_ms) AS avg_lat, MAX(latency_ms) AS max_lat
-FROM runs GROUP BY model_id HAVING COUNT(*) >= 3;
-```
-</details>
-
-### JOIN (S.4)
-**4.** Замени `model_id` на имя модели: средняя латентность по имени модели (INNER JOIN с `models`).
-<details><summary>решение</summary>
-
-```sql
-SELECT m.name, AVG(r.latency_ms) AS avg_lat
-FROM runs r JOIN models m ON m.model_id = r.model_id
-GROUP BY m.name ORDER BY avg_lat;
-```
-</details>
-
-**5.** Найди модели, у которых **нет ни одного прогона** (LEFT JOIN + `IS NULL`).
-<details><summary>решение</summary>
-
-```sql
-SELECT m.name FROM models m
-LEFT JOIN runs r ON r.model_id = m.model_id
-WHERE r.run_id IS NULL;
-```
-Ловушка из заметки S.4: фильтр по `runs` — через `IS NULL`, не через обычный `WHERE` по полю.
-</details>
+Каждое — реальный вопрос ML-инженера. Реши сам, потом раскрой решение. Цель — покрыть **все функции A.1–A.8**.
 
 ### Множества и подзапросы (A.1)
-**6.** Список `user_id`, которые оставляли feedback, но НЕ по промпту `classifier` (используй `EXCEPT` или `NOT IN` с подзапросом).
+**1.** Список `user_id`, которые оставляли feedback, но НЕ по промпту `classifier` (через `EXCEPT`).
 <details><summary>решение</summary>
 
 ```sql
@@ -180,10 +135,28 @@ JOIN runs r ON r.run_id=f.run_id
 JOIN prompt_versions p ON p.pv_id=r.pv_id
 WHERE p.prompt='classifier';
 ```
+`EXCEPT` = разность множеств: «все, кто оставлял feedback» минус «кто оставлял по classifier».
+</details>
+
+**1б.** Собери отчёт «вовлечённые пользователи» из **двух источников** через `UNION` (довольные: `rating >= 4` + все, кто оценивал `support_rag`) и оберни результат в отдельный `CTE`, из которого и выбираешь.
+<details><summary>решение</summary>
+
+```sql
+WITH engaged AS (
+  SELECT user_id FROM feedback WHERE rating >= 4          -- источник 1: довольные
+  UNION                                                    -- объединение множеств (дубли убираются)
+  SELECT f.user_id FROM feedback f                          -- источник 2: оценившие support_rag
+  JOIN runs r ON r.run_id=f.run_id
+  JOIN prompt_versions p ON p.pv_id=r.pv_id
+  WHERE p.prompt='support_rag'
+)
+SELECT user_id FROM engaged ORDER BY user_id;
+```
+`UNION` склеивает две выборки в одно множество и **убирает дубли** (если дубли не важны — `UNION ALL`, он быстрее). Обёртка в `CTE` — тот самый приём «собрал отчёт → фильтруешь/сортируешь его отдельным шагом».
 </details>
 
 ### CASE и категоризация (A.2)
-**7.** Пометь каждый прогон по латентности: `<1000` → 'fast', `1000–2000` → 'ok', иначе 'slow'. Посчитай, сколько прогонов в каждой категории.
+**2.** Пометь каждый прогон по латентности: `<1000` → 'fast', `1000–2000` → 'ok', иначе 'slow'. Посчитай, сколько прогонов в каждой категории.
 <details><summary>решение</summary>
 
 ```sql
@@ -192,10 +165,27 @@ SELECT CASE WHEN latency_ms<1000 THEN 'fast'
        COUNT(*)
 FROM runs GROUP BY 1 ORDER BY 1;
 ```
+`CASE` разбивает числовую метрику на корзины — прямой аналог `pd.cut` из Этапа 0.
+</details>
+
+**2б. Работа с дубликатами.** Представь, что в `feedback` завёлся неявный дубль — один пользователь оценил один прогон дважды. Оставь по **одной** строке на пару `(run_id, user_id)` — самую свежую — через `ROW_NUMBER`.
+<details><summary>решение</summary>
+
+```sql
+WITH ranked AS (
+  SELECT *,
+         ROW_NUMBER() OVER (PARTITION BY run_id, user_id ORDER BY created_at DESC) AS rn
+  FROM feedback
+)
+SELECT fb_id, run_id, user_id, rating, created_at
+FROM ranked
+WHERE rn = 1;   -- одна строка на ключ = дедупликация
+```
+Канонический паттерн дедупликации: пронумеровать строки внутри группы-ключа и оставить `rn = 1`. На текущем seed дублей нет — но именно так чистят «неявные дубликаты» в реальных данных (тот же приём «top-1 per group», что в №6). Явные полные дубли строк убирает `SELECT DISTINCT` / `GROUP BY` по всем колонкам.
 </details>
 
 ### Дата и время (A.3)
-**8.** Число прогонов и суммарные выходные токены **по дням**. Затем — только за последние 5 дней от `2026-06-27`.
+**3.** Число прогонов и суммарные выходные токены **по дням**, только за последние 5 дней от `2026-06-27`.
 <details><summary>решение</summary>
 
 ```sql
@@ -207,21 +197,8 @@ GROUP BY 1 ORDER BY 1;
 Покрывает: `date_trunc`, `INTERVAL`, группировку по периоду.
 </details>
 
-### Стоимость (JOIN + арифметика) — ML-специфика
-**9.** Посчитай стоимость каждого прогона: `tokens_in/1000*price_in + tokens_out/1000*price_out`. Выведи топ-5 самых дорогих с именем модели.
-<details><summary>решение</summary>
-
-```sql
-SELECT r.run_id, m.name,
-       ROUND(r.tokens_in/1000.0*m.price_in + r.tokens_out/1000.0*m.price_out, 4) AS cost
-FROM runs r JOIN models m ON m.model_id=r.model_id
-ORDER BY cost DESC LIMIT 5;
-```
-Это буквально задача из Этапа 5.1.5 (cost-оптимизация).
-</details>
-
 ### Оконные функции: агрегаты (A.4)
-**10.** Для каждого прогона выведи его латентность И среднюю латентность его модели рядом (без схлопывания строк).
+**4.** Для каждого прогона выведи его латентность И среднюю латентность его модели рядом (без схлопывания строк).
 <details><summary>решение</summary>
 
 ```sql
@@ -229,9 +206,10 @@ SELECT run_id, model_id, latency_ms,
        AVG(latency_ms) OVER (PARTITION BY model_id) AS model_avg
 FROM runs;
 ```
+Ключевое отличие от `GROUP BY`: окно **не схлопывает** строки — каждая строка остаётся, а рядом появляется агрегат по её группе.
 </details>
 
-**11.** Накопительная сумма выходных токенов по времени (running total).
+**5.** Накопительная сумма выходных токенов по времени (running total).
 <details><summary>решение</summary>
 
 ```sql
@@ -239,10 +217,11 @@ SELECT run_id, created_at, tokens_out,
        SUM(tokens_out) OVER (ORDER BY created_at) AS running_total
 FROM runs;
 ```
+`ORDER BY` внутри `OVER` превращает агрегат в нарастающий итог.
 </details>
 
 ### Ранжирование (A.5)
-**12.** Для каждого промпта оставь только **последнюю версию** (`ROW_NUMBER` + `PARTITION BY prompt ORDER BY version DESC`).
+**6.** Для каждого промпта оставь только **последнюю версию** (`ROW_NUMBER` + `PARTITION BY prompt ORDER BY version DESC`).
 <details><summary>решение</summary>
 
 ```sql
@@ -254,7 +233,7 @@ SELECT prompt, version, created_at FROM ranked WHERE rn=1;
 Классический паттерн «top-1 per group».
 </details>
 
-**13.** Разбей прогоны на 4 корзины по стоимости через `NTILE(4)` и выведи границы (min/max cost) каждой корзины.
+**7.** Разбей прогоны на 4 корзины по стоимости через `NTILE(4)` и выведи границы (min/max cost) каждой корзины.
 <details><summary>решение</summary>
 
 ```sql
@@ -265,10 +244,11 @@ WITH c AS (
 b AS (SELECT *, NTILE(4) OVER (ORDER BY cost) AS q FROM c)
 SELECT q, MIN(cost), MAX(cost), COUNT(*) FROM b GROUP BY q ORDER BY q;
 ```
+`NTILE(4)` = квартили: делит строки на 4 примерно равные группы по стоимости.
 </details>
 
 ### Функции смещения (A.6)
-**14.** Для каждой модели посчитай, насколько латентность прогона отличается от **предыдущего** прогона той же модели (`LAG`).
+**8.** Для каждой модели посчитай, насколько латентность прогона отличается от **предыдущего** прогона той же модели (`LAG`).
 <details><summary>решение</summary>
 
 ```sql
@@ -276,9 +256,10 @@ SELECT run_id, model_id, created_at, latency_ms,
        latency_ms - LAG(latency_ms) OVER (PARTITION BY model_id ORDER BY created_at) AS delta
 FROM runs ORDER BY model_id, created_at;
 ```
+`LAG` заглядывает на строку назад внутри окна — так считают прирост к предыдущему периоду.
 </details>
 
-**15.** Для каждого промпта покажи первую и последнюю (по времени) оценку faithfulness через `FIRST_VALUE`/`LAST_VALUE` (осторожно с рамкой окна).
+**9.** Для каждого промпта покажи первую и последнюю (по времени) оценку faithfulness через `FIRST_VALUE`/`LAST_VALUE` (осторожно с рамкой окна).
 <details><summary>решение</summary>
 
 ```sql
@@ -296,7 +277,7 @@ WINDOW w AS (PARTITION BY p.prompt ORDER BY r.created_at
 </details>
 
 ### Описательная статистика (A.7) — ML-специфика (eval)
-**16.** По каждой метрике eval посчитай среднее, стандартное отклонение и **медиану** (`PERCENTILE_CONT(0.5)`), а также p95 латентности прогонов.
+**10.** По каждой метрике eval посчитай среднее, стандартное отклонение и **медиану** (`PERCENTILE_CONT(0.5)`), а также p95 латентности прогонов.
 <details><summary>решение</summary>
 
 ```sql
@@ -309,11 +290,11 @@ FROM evals GROUP BY metric;
 SELECT PERCENTILE_CONT(0.95) WITHIN GROUP (ORDER BY latency_ms) AS p95
 FROM runs WHERE status='ok';
 ```
-p95 — то, чем реально меряют латентность в проде (Этап 5.3).
+p95 — то, чем реально меряют латентность в проде (Этап 5.3). Мост к Этапу 1.4: те же меры центра/разброса, что в статистике.
 </details>
 
 ### Ad-hoc: многошаговая задача (A.8) — главный навык
-**17.** Бизнес-вопрос: **«Для промпта `support_rag` — какая версия дала лучшую среднюю faithfulness, и сколько она стоила в среднем за прогон?»** Реши цепочкой CTE (декомпозиция: прогоны support_rag → их стоимость и faithfulness → агрегат по версии → выбор лучшей).
+**11.** Бизнес-вопрос: **«Для промпта `support_rag` — какая версия дала лучшую среднюю faithfulness, и сколько она стоила в среднем за прогон?»** Реши цепочкой CTE (декомпозиция: прогоны support_rag → их стоимость и faithfulness → агрегат по версии → выбор лучшей).
 <details><summary>решение</summary>
 
 ```sql
@@ -330,26 +311,57 @@ agg AS (  -- агрегат по версии
   FROM sr GROUP BY version)
 SELECT * FROM agg ORDER BY avg_faith DESC NULLS LAST LIMIT 1;
 ```
-Это ровно то, как выглядит анализ eval-логов в работе AI Engineer — навык из Этапа 4.8 / 5.3.
+Это ровно то, как выглядит анализ eval-логов в работе AI Engineer — навык из Этапа 4.8 / 5.3: разбить вопрос на шаги и собрать ответ цепочкой CTE.
 </details>
 
 ---
 
-## Финальный чек: покрыл(а) ли все функции?
-- [ ] SELECT / WHERE / ORDER / LIMIT / DISTINCT (№1–2)
-- [ ] IN / BETWEEN / LIKE / IS NULL (№2, №5)
-- [ ] GROUP BY / агрегаты / HAVING (№3)
-- [ ] INNER / LEFT JOIN (№4–5)
-- [ ] UNION / EXCEPT / подзапросы (№6)
-- [ ] CASE (№7)
-- [ ] Дата/время, INTERVAL, date_trunc (№8)
-- [ ] Оконные агрегаты, running total (№10–11)
-- [ ] ROW_NUMBER / NTILE (№12–13)
-- [ ] LAG/LEAD, FIRST/LAST_VALUE (№14–15)
-- [ ] Перцентили / описательная статистика (№16)
-- [ ] Ad-hoc через CTE (№17)
+## 🏁 Оверол S+A — капстоун
 
-Отметил(а) всё — SQL-навык покрыт для роли AI Engineer. Для добора техники на нейтральных данных — PGExercises (раздел window functions).
+Финальные задачи на **весь SQL сразу** (S-практика + A-практика). Если проходишь их без подсказок — блок SQL для роли закрыт.
+
+**O1. Полный аналитический отчёт по прогонам (S.3–S.5 + A.1–A.8, только Postgres).**
+Одним запросом (цепочкой CTE) собери таблицу «по версиям промпта `support_rag`»: номер версии, число прогонов, средняя стоимость, средняя faithfulness, p95 латентности, **дельта средней faithfulness к предыдущей версии** и **ранг версии по faithfulness**. Отсортируй по версии.
+<details><summary>подсказка к декомпозиции</summary>
+
+CTE-шаги: `base` (join runs+prompt_versions+models+evals, только support_rag, со стоимостью и метриками) → `per_version` (GROUP BY version: `COUNT`, `AVG(cost)`, `AVG(faith)`, `PERCENTILE_CONT(0.95)` по латентности) → финальный SELECT с оконными `LAG(avg_faith) OVER (ORDER BY version)` для дельты и `RANK() OVER (ORDER BY avg_faith DESC)` для ранга. Собираешь S.4 (JOIN) + S.5 (CTE) + A.3/A.7 (даты/перцентили) + A.4–A.6 (окна) + A.8 (декомпозиция) в одном месте.
+</details>
+
+**O2. RAG-retrieval с аналитикой (S.7 + S.8 + A.4, на Neon/Supabase/локально с pgvector).**
+Возьми таблицу `doc_chunks` из [S-практики (раздел pgvector)](../S-практика/README.md#postgresql--pgvector-s7--ядро-блока). Напиши **один** запрос, который для запроса-вектора `[0.85, 0.15, 0.05]` возвращает топ-3 ближайших по косинусу чанка **с фильтром `category = 'faq'`**, и рядом — **долю дистанции каждого чанка от суммы дистанций тройки** (оконная `SUM(...) OVER ()` как нормировка «уверенности»). Затем сформулируй, как обернуть его параметризованным вызовом под read-only роль (S.8).
+<details><summary>подсказка к решению</summary>
+
+```sql
+WITH top AS (
+  SELECT chunk_id, content,
+         embedding <=> '[0.85, 0.15, 0.05]' AS dist
+  FROM doc_chunks
+  WHERE category = 'faq'
+  ORDER BY embedding <=> '[0.85, 0.15, 0.05]'
+  LIMIT 3
+)
+SELECT chunk_id, content, dist,
+       dist / SUM(dist) OVER () AS dist_share
+FROM top
+ORDER BY dist;
+```
+Здесь встречаются **S.7** (гибридный `<=>` + `WHERE`), **A.4** (оконная нормировка без схлопывания) и **S.8** (в коде — `%(qvec)s`/`%(cat)s`/`%(k)s` под read-only ролью). Это буквально ядро retrieval-слоя твоего RAG из Этапа 4 + аналитика поверх него.
+</details>
+
+---
+
+## Финальный чек: покрыл(а) ли A.1–A.8?
+- [ ] UNION / EXCEPT / подзапросы / CTE (№1, 1б)
+- [ ] CASE + работа с дубликатами (ROW_NUMBER) (№2, 2б)
+- [ ] Дата/время, INTERVAL, date_trunc (№3)
+- [ ] Оконные агрегаты, running total (№4–5)
+- [ ] ROW_NUMBER / NTILE (№6–7)
+- [ ] LAG/LEAD, FIRST/LAST_VALUE (№8–9)
+- [ ] Перцентили / описательная статистика (№10)
+- [ ] Ad-hoc через CTE (№11)
+- [ ] **Оверол S+A** (O1–O2)
+
+Отметил(а) всё (плюс [S-практику](../S-практика/README.md)) — SQL-навык покрыт для роли AI Engineer.
 
 ---
 
